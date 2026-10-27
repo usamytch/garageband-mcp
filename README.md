@@ -1,185 +1,103 @@
-# GarageBand MCP
+# GarageBand MCP · Mixing Edition
 
-An [MCP](https://modelcontextprotocol.io) server that lets AI agents control **GarageBand on macOS** — compose and record music, drive the transport, manage projects, and export songs. Works with any MCP client: Claude Code, Claude Desktop, Cursor, Cline, Zed, Windsurf, or your own agent.
+[![CI](https://github.com/usamytch/garageband-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/usamytch/garageband-mcp/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-GarageBand has no scripting API, so this server combines three techniques:
+**A local MCP server for arranging and mixing in GarageBand, with a source-backed mixing skill for six genre families.**
 
-- **Virtual MIDI** — the server creates a virtual CoreMIDI source that GarageBand automatically listens to. Claude can literally *play notes into a record-armed track*: melodies, chords, drum patterns, streamed in time against the project tempo.
-- **AppleScript** — project lifecycle (open, save, close, list) via GarageBand's Standard Suite.
-- **UI automation** — transport keys, menus, and dialogs via System Events (needs Accessibility permission).
+Fork of [visualfart/garageband-mcp](https://github.com/visualfart/garageband-mcp). It keeps the original MIDI composition tools and adds verified mixer control, guarded GUI operations, region moves, and experimental volume automation. Upstream history and MIT license are preserved.
 
-## Example
+[Русский](docs/README.ru.md) · [Architecture](docs/architecture.md) · [Mix workflow](docs/mixing-workflow.md) · [60 tools](docs/tools.md) · [Testing](docs/testing.md)
 
-> "Create a new GarageBand project at 90 BPM and record a four-bar lo-fi chord progression, then a drum groove on a second track, and export it as an MP3."
-
-The agent does this with `gb_new_project` → `gb_set_tempo` → `gb_record_sequence` → `gb_add_software_instrument_track` → `gb_record_sequence` → `gb_export_song`.
-
-## Hear it
-
-Twelve example pieces across genres live in [`examples/`](examples/), each with an MP3 preview synthesized from its JSON — **click a waveform to listen**:
-
-| | | |
-|---|---|---|
-| [![EDM](examples/audio/waves/edm-anthem.svg)](examples/audio/edm-anthem.mp3)<br>**Neon Skyline** — EDM build & drop | [![Jazz](examples/audio/waves/jazz-swing.svg)](examples/audio/jazz-swing.mp3)<br>**Blue Hour** — swing trio | [![Acid](examples/audio/waves/acid-techno.svg)](examples/audio/acid-techno.mp3)<br>**Voltage Corridor** — acid + filter sweep |
-| [![Latin](examples/audio/waves/latin-groove.svg)](examples/audio/latin-groove.mp3)<br>**Calle Ocho** — clave & montuno | [![Rock](examples/audio/waves/rock-anthem.svg)](examples/audio/rock-anthem.mp3)<br>**Stadium Lights** — power chords | [![Cinematic](examples/audio/waves/cinematic-swell.svg)](examples/audio/cinematic-swell.mp3)<br>**Dawn Over Ice** — strings & swells |
-| [![Ambient](examples/audio/waves/ambient-dawn.svg)](examples/audio/ambient-dawn.mp3)<br>**First Light** — ambient | [![Bach](examples/audio/waves/bach-prelude.svg)](examples/audio/bach-prelude.mp3)<br>**Prelude in C** — imported via `gb_import_midi` | [and four more →](examples/) |
-
-End-to-end recipes — MIDI import, Apple Loops, Freesound textures, sound design — are in [`examples/workflows.md`](examples/workflows.md). A standalone player streams any example into GarageBand without an MCP client:
-
-```bash
-node examples/play.mjs examples/edm-anthem.json
+```mermaid
+flowchart LR
+    A[You + mixing skill] --> B[MCP client]
+    B --> C[Local TypeScript server]
+    C --> D[GUI queue + project check]
+    D --> E[GarageBand]
+    E --> F[WAV export + listening + measurements]
+    F --> A
 ```
 
-## Tools (52)
+## What works—and what is still experimental
 
-| Domain | Tools |
-|---|---|
-| Compose 🎹 | `gb_play_note`, `gb_play_chord`, `gb_play_sequence` (live audition), `gb_play_song` (multi-layer arrangements), `gb_record_sequence` (records into the project), `gb_send_cc`, `gb_pitch_bend`, `gb_all_notes_off` |
-| Project | `gb_launch`, `gb_new_project`, `gb_open_project`, `gb_save_project`, `gb_close_project`, `gb_list_projects` |
-| Transport | `gb_play`, `gb_stop`, `gb_record`, `gb_go_to_beginning` (verified rewind), `gb_set_playhead`, `gb_toggle_cycle`, `gb_toggle_metronome`, `gb_toggle_count_in`, `gb_undo`, `gb_redo` |
-| Tracks | `gb_add_software_instrument_track`, `gb_add_track` (software/drummer/audio), `gb_set_track_instrument` (Library patch search), `gb_list_tracks`, `gb_select_track` (clicks track headers), `gb_delete_selected_track`, `gb_mute_selected_track`, `gb_solo_selected_track` |
-| Sound & Mix 🎛 | `gb_toggle_smart_controls`, `gb_list_smart_controls`, `gb_set_smart_control` (filter cutoff, resonance, attack…), `gb_set_track_volume`, `gb_set_track_pan`, `gb_set_master_volume` |
-| Apple Loops | `gb_search_loops`, `gb_add_loop` (drag into the timeline) |
-| Open-source content 🌐 | `gb_import_midi` (built-in SMF parser → layers), `gb_play_imported`, `gb_record_imported`, `gb_imported_events`, `gb_search_freesound`, `gb_download_sample` |
-| Tempo | `gb_get_tempo`, `gb_set_tempo` |
-| Export | `gb_export_song` (AAC / MP3 / AIFF) |
-| Inspect | `gb_check_permissions`, `gb_ui_state`, `gb_screenshot` |
+| Area | Current scope |
+| --- | --- |
+| Tracks and mixer | Add/select/delete tracks; explicit mute/solo; pan; actual dB fader readback |
+| Smart Controls | Discover controls; set normalized values and switches; reject ambiguous names |
+| Regions | Move ordinary audio/MIDI regions by whole bars and between compatible tracks; reject stale IDs and overlaps |
+| GUI coordination | FIFO operations within a server; shared macOS user lock across cooperating servers; explicit target project checks |
+| Volume automation | **Experimental:** modest phrase rides on an empty visible lane in a stopped 4/4 project copy; requires rendered verification |
+| Composition | Original virtual MIDI, chords, scales, sequences, recording, imports, loops and export tools |
+| Mixing knowledge | One installable skill with punk, funk, metal, pop, rock and Latin profiles |
 
-Sequences also carry **expression**: CC events with linear ramps (mod-wheel filter sweeps across a build) and pitch-bend curves, alongside notes on the same beat grid.
+**Not implemented:** fractional-bar region moves, a general automation-point editor, arbitrary Audio Unit parameters in Hz/ms/dB, or reliable unattended operation on any macOS/GarageBand version. Normalized Smart Control values are not physical units. The GUI adapter currently expects English GarageBand labels and an unlocked desktop.
 
-**If you are an AI agent — or building one — read [AGENTS.md](AGENTS.md) first.** It's the playbook: the three control planes and their failure modes, the golden-path workflow for multi-instrument songs, composing/mixing craft (velocity shaping, structure, sound design with Smart Controls), and error recovery for every error code.
+## Build and connect
 
-Notes are written as names (`"C4"`, `"F#3"`), drum aliases (`"kick"`, `"snare"`, `"hihat"`, …), or raw MIDI numbers. Sequences are placed on a beat grid (`startBeat` + `durationBeats`) and converted to real time by tempo. Songs go further: named **layers** (drums, bass, strings, lead, FX) on separate MIDI channels, and a **tempo map** with instant changes or linear ramps — enough to express builds, drops, risers, falls, crescendos, accelerando and ritardando. The [examples](examples/) show all of it, **with MP3 previews you can listen to**: an [EDM anthem](examples/audio/edm-anthem.mp3) with a build, drop, and ritardando outro, and a [cinematic strings piece](examples/audio/cinematic-swell.mp3) with swells and tempo ramps.
+Requirements: macOS, GarageBand with first-run setup completed, Node.js 22 or newer recommended, Python 3 on `PATH`, and Xcode Command Line Tools for the native MIDI dependency. No Python packages are required by the server. Audio verification scripts additionally use FFmpeg/ffprobe.
 
-## Requirements
-
-- macOS with GarageBand installed (tested against GarageBand 10.4)
-- Node.js ≥ 18 (MIDI uses prebuilt binaries — no Xcode tools needed)
-
-## Install
-
-**Claude Code:**
-
-```bash
-claude mcp add garageband -- npx -y garageband-mcp
-```
-
-**Claude Desktop** — add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "garageband": {
-      "command": "npx",
-      "args": ["-y", "garageband-mcp"]
-    }
-  }
-}
-```
-
-**Cursor** — `~/.cursor/mcp.json` (or a project's `.cursor/mcp.json`), **Cline** — `cline_mcp_settings.json` via *MCP Servers → Configure*, and **Windsurf** — `~/.codeium/windsurf/mcp_config.json` all use the same shape:
-
-```json
-{
-  "mcpServers": {
-    "garageband": {
-      "command": "npx",
-      "args": ["-y", "garageband-mcp"]
-    }
-  }
-}
-```
-
-**VS Code (GitHub Copilot agent mode)** — `.vscode/mcp.json`:
-
-```json
-{
-  "servers": {
-    "garageband": { "type": "stdio", "command": "npx", "args": ["-y", "garageband-mcp"] }
-  }
-}
-```
-
-**Zed** — `settings.json`:
-
-```json
-{
-  "context_servers": {
-    "garageband": { "command": { "path": "npx", "args": ["-y", "garageband-mcp"] } }
-  }
-}
-```
-
-**Your own agent** — it's a standard MCP stdio server, so any MCP SDK connects to it. Python, for example:
-
-```python
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
-
-params = StdioServerParameters(command="npx", args=["-y", "garageband-mcp"])
-async with stdio_client(params) as (read, write):
-    async with ClientSession(read, write) as session:
-        await session.initialize()
-        await session.call_tool("gb_play_chord", {"notes": ["C4", "E4", "G4"]})
-```
-
-Any framework that speaks MCP (OpenAI Agents SDK, LangChain MCP adapters, custom loops) works the same way — launch `npx -y garageband-mcp` as a stdio server.
-
-**From source:**
-
-```bash
-git clone https://github.com/visualfart/garageband-mcp.git
+```sh
+git clone https://github.com/usamytch/garageband-mcp.git
 cd garageband-mcp
-npm install && npm run build
-# then use `node /path/to/garageband-mcp/dist/index.js` as the server command
+npm ci
+npm run check
 ```
 
-## Open-source MIDI & samples
-
-The server can pull open-licensed music from the internet:
-
-- **MIDI** — `gb_import_midi {url}` downloads a `.mid`, parses it with a built-in Standard MIDI File parser (notes, velocities, tempo changes, per-track layers), and holds it for auditioning (`gb_play_imported`) or recording into GarageBand layer by layer (`gb_record_imported`). Good sources: the [Mutopia Project](https://www.mutopiaproject.org) (public-domain scores), [piano-midi.de](http://www.piano-midi.de) (CC classical performances), Wikimedia Commons. **Stick to public-domain/CC sources** — most "free MIDI" sites host transcriptions of copyrighted songs.
-- **Audio samples** — `gb_search_freesound` / `gb_download_sample` use [Freesound.org](https://freesound.org)'s API (CC0 by default; CC-BY results report the required credit). Enable it with a free API key:
+Configure your MCP client to launch `dist/index.js` with your **absolute Node path**. A common client configuration looks like:
 
 ```json
 {
   "mcpServers": {
     "garageband": {
-      "command": "npx",
-      "args": ["-y", "garageband-mcp"],
-      "env": { "FREESOUND_API_KEY": "your-key-from-freesound.org/apiv2/apply" }
+      "command": "/absolute/path/to/node",
+      "args": ["/absolute/path/to/garageband-mcp/dist/index.js"],
+      "env": {
+        "GARAGEBAND_MCP_DATA_DIR": "/absolute/path/to/MixWorkspace"
+      }
     }
   }
 }
 ```
 
-Downloaded samples land in `~/Music/GarageBand MCP Samples/`; GarageBand can't be scripted to import audio, so the last step is dragging the file from Finder into the tracks area.
+Configuration containers differ between clients; use the same command/args in your client's MCP settings. This fork is installed from source; the upstream npm package does not contain these changes. `private: true` prevents accidental npm publication under the upstream package name.
 
-## macOS permissions
+Grant Accessibility and Automation permissions to the process that macOS identifies as controlling GarageBand. Screenshot-dependent tools also need Screen Recording. Use `gb_check_permissions` and `gb_list_projects` before editing. Save the project, make a working copy, and pass its exact path to project-bound calls:
 
-The first tool call will surface what's missing (run `gb_check_permissions`), but you'll need:
+```json
+{
+  "name": "gb_set_track_volume_db",
+  "arguments": {
+    "projectPath": "/absolute/path/to/MixWorkspace/projects/Mix-01.band",
+    "trackIndex": 3,
+    "db": -8
+  }
+}
+```
 
-1. **Accessibility** — System Settings ▸ Privacy & Security ▸ **Accessibility** ▸ enable the app hosting the server (Terminal, iTerm, Claude Desktop, …). Required for transport keys, menus, and dialogs.
-2. **Automation** — the first UI call triggers a consent prompt to control "System Events". Click Allow.
-3. **Screen Recording** (optional) — same Settings pane; only needed for `gb_screenshot`.
+Automation evidence defaults to `~/Music/GarageBand MCP/automation/`; set the absolute `GARAGEBAND_MCP_DATA_DIR` to place it in a session folder. Export destinations are explicit tool arguments. The shared GUI lock always stays at `~/Library/Caches/garageband-mcp/gui.lock` so different installations cooperate.
 
-## How recording works
+## Install the mixing skill
 
-`gb_record_sequence` moves the playhead to the start, presses record, waits out GarageBand's count-in (computed from tempo and time signature), then streams your sequence as MIDI with a lookahead scheduler (bounded jitter). For tight alignment:
+Copy [skills/mix-engineer](skills/mix-engineer) as a whole into your client's skills directory. For a standard local Codex skills directory, from this repository:
 
-- set the project tempo to match the `tempo` you pass (`gb_set_tempo`)
-- keep count-in on (`gb_toggle_count_in`) and tell the tool `countInBars`
-- fine-tune with `startLatencyMs` if your machine adds latency
+```sh
+mkdir -p "$HOME/.codex/skills"
+cp -R skills/mix-engineer "$HOME/.codex/skills/"
+```
 
-## Limitations
+Check for an existing `mix-engineer` installation before replacing it, then reload the client's skill list. Example request:
 
-- GarageBand routes live MIDI to the one selected track, so `gb_play_song` auditions a whole mix on a single instrument. Real multi-instrument arrangements are built layer by layer: `gb_add_software_instrument_track` → `gb_set_track_instrument` → `gb_record_sequence`, per layer.
-- GarageBand must be frontmost during UI operations (the server brings it forward).
-- `gb_set_tempo` writes the LCD tempo slider's accessibility value and verifies by reading back; the LCD must be in a mode that shows tempo (the default).
-- `gb_export_song` can't fully control the destination folder in every GarageBand version; it watches the filesystem and reports where the file landed.
-- New projects use the Empty Project template.
-- Menu automation assumes English localization.
+> Use $mix-engineer to mix a copy of this rock session. Keep my excluded tracks muted. Start with balance, then vocal phrase rides, and compare WAV exports at matched loudness.
 
-## License
+Profiles: [punk](skills/mix-engineer/references/genres/punk.md) · [funk](skills/mix-engineer/references/genres/funk.md) · [metal](skills/mix-engineer/references/genres/metal.md) · [pop](skills/mix-engineer/references/genres/pop.md) · [rock](skills/mix-engineer/references/genres/rock.md) · [Latin](skills/mix-engineer/references/genres/latin.md).
 
-MIT
+The skill supplies decisions and evaluation criteria; MCP supplies concrete actions and readback. Profiles are conditional working hypotheses, not artist presets or endorsements. Sources and access limits are recorded alongside them.
+
+## Validation and contributing
+
+`npm run check` runs behavior tests, type checking, a build, and a real stdio MCP handshake/schema check. CI does not drive GarageBand. [Testing](docs/testing.md) separates simulated, protocol and live-render evidence, and describes disposable fixtures.
+
+See [AGENTS.md](AGENTS.md) for contributor rules. Keep recordings, `.band` bundles, exports, credentials and machine-specific evidence out of Git. The current checkout contains text assets only; upstream preview audio remains in Git history to preserve the fork relationship. Use a shallow clone if download size matters.
+
+[MIT](LICENSE), originally copyright © 2026 visualfart. Fork additions are distributed under the same license. This is an independent community project, not affiliated with Apple or the engineers cited by the mixing profiles.

@@ -100,7 +100,7 @@ export function registerProjectTools(server: McpServer): void {
     async ({ name }) =>
       guarded(async () => {
         await ui.ensureReady({ needsProject: true });
-        await ui.keystroke("s", ["command"]);
+        await ui.clickMenu(["File", "Save"]);
         await sleep(1000);
         const sheet = await ui.frontSheet();
         if (sheet.present) {
@@ -111,6 +111,9 @@ export function registerProjectTools(server: McpServer): void {
         }
         const docs = await gb.listDocuments();
         const d = docs[0];
+        if (!d || d.modified) {
+          throw new GBError("VERIFICATION_FAILED", "GarageBand did not confirm that the project was saved.");
+        }
         return ok(
           d
             ? `Saved "${d.name}"${d.path ? ` at ${d.path}` : ""}.`

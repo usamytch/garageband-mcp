@@ -1,4 +1,7 @@
 export type GBErrorCode =
+  | "WRONG_PROJECT"
+  | "GUI_LOCK_FAILED"
+  | "OPERATION_CANCELLED"
   | "NOT_RUNNING"
   | "NOT_FRONTMOST"
   | "NO_PROJECT"
@@ -10,6 +13,7 @@ export type GBErrorCode =
   | "MIDI_INIT_FAILED"
   | "OSASCRIPT_TIMEOUT"
   | "OSASCRIPT_ERROR"
+  | "VERIFICATION_FAILED"
   | "INVALID_INPUT";
 
 export class GBError extends Error {

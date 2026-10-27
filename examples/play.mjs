@@ -2,32 +2,33 @@
 // Standalone demo player — streams an example sequence into GarageBand
 // through the MCP server, no AI agent or MCP client required.
 //
-//   node examples/play.mjs examples/lofi-chords.json              # audition live
-//   node examples/play.mjs examples/drum-groove.json --record     # record into the project
-//   node examples/play.mjs examples/edm-anthem.json               # multi-layer song, full mix
-//   node examples/play.mjs examples/edm-anthem.json --layer bass  # just one layer (name or index)
+//   node examples/play.mjs examples/lofi-chords.json --project /absolute/Demo.band
+//   Add --record to record, or --layer bass to select a layer by name or index.
 //
 // GarageBand must be open with a software-instrument track selected. To build a
 // real multi-instrument arrangement, record layer by layer: record one --layer,
 // add a track in GarageBand, record the next.
 import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const args = process.argv.slice(2);
-const file = args.find((a) => !a.startsWith("--"));
+const file = args[0];
+const projectIdx = args.indexOf("--project");
+const projectPath = projectIdx >= 0 ? args[projectIdx + 1] : undefined;
 const record = args.includes("--record");
 const layerIdx = args.indexOf("--layer");
 const layerPick = layerIdx >= 0 ? args[layerIdx + 1] : null;
-if (!file) {
-  console.error("Usage: node examples/play.mjs <sequence.json> [--record] [--layer <name|index>]");
+if (!file || file.startsWith("--") || !projectPath || !isAbsolute(projectPath)) {
+  console.error("Usage: node examples/play.mjs <sequence.json> --project /absolute/Demo.band [--record] [--layer <name|index>]");
   process.exit(1);
 }
 const seq = JSON.parse(readFileSync(file, "utf8"));
 const serverPath = join(dirname(fileURLToPath(import.meta.url)), "..", "dist", "index.js");
 
-const proc = spawn("node", [serverPath], { stdio: ["pipe", "pipe", "inherit"] });
+const proc = spawn(process.execPath, [serverPath], { stdio: ["pipe", "pipe", "inherit"] });
+process.on("exit", () => proc.kill());
 let buf = "";
 const pending = new Map();
 let nextId = 1;
@@ -89,9 +90,10 @@ if (seq.layers && layerPick !== null) {
   toolArgs = { tempo: seq.tempo, tempoMap: seq.tempoMap, events: seq.events };
   console.log(`${record ? "Recording" : "Playing"}: ${seq.name} (${seq.tempo} BPM)`);
 }
-const res = await call("tools/call", { name: toolName, arguments: toolArgs });
+const res = await call("tools/call", { name: toolName, arguments: { ...toolArgs, projectPath } });
+if (res.error) console.error(res.error.message);
 for (const c of res.result?.content ?? []) {
   if (c.type === "text") console.log(c.text);
 }
 proc.kill();
-process.exit(res.result?.isError ? 1 : 0);
+process.exit(res.error || res.result?.isError ? 1 : 0);

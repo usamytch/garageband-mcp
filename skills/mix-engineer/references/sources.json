@@ -1,0 +1,60 @@
+{
+  "reviewedOn": "2026-10-27",
+  "policy": "Profiles are original conditional guidance. Attributions are bounded by accessible source material; no endorsement or universal preset is implied.",
+  "sources": [
+    {
+      "id": "tla-2017",
+      "speaker": "Tom Lord-Alge",
+      "title": "Inside the Mix",
+      "url": "https://www.waves.com/inside-the-mix-tom-lord-alge",
+      "year": "2017",
+      "access": "public interview text",
+      "scope": "Punk/pop-punk source context; source-dependent decisions."
+    },
+    {
+      "id": "ram-2013",
+      "speaker": "Mick Guzauski and Peter Franco",
+      "title": "Recording Random Access Memories",
+      "url": "https://www.soundonsound.com/people/recording-random-access-memories-daft-punk",
+      "year": "2013",
+      "access": "search-indexed interview excerpts; direct fetch unavailable",
+      "scope": "Specific disco/funk production context, not all funk."
+    },
+    {
+      "id": "mynett-2009",
+      "speaker": "Mark Mynett",
+      "title": "Mixing Metal",
+      "url": "https://www.soundonsound.com/techniques/mixing-metal",
+      "year": "2009",
+      "access": "search-indexed article excerpts; direct fetch unavailable",
+      "scope": "Extreme metal, not a universal metal recipe."
+    },
+    {
+      "id": "kirkpatrick-2020",
+      "speaker": "Ian Kirkpatrick",
+      "title": "Inside Track: Dua Lipa - Don't Start Now",
+      "url": "https://www.soundonsound.com/techniques/inside-track-dua-lipa-dont-start-now",
+      "year": "2020",
+      "access": "search-indexed interview excerpts; direct fetch unavailable",
+      "scope": "Production interview, not a full mix session breakdown."
+    },
+    {
+      "id": "wallace-2014",
+      "speaker": "Andy Wallace",
+      "title": "Inside Track: Linkin Park - The Hunting Party",
+      "url": "https://www.soundonsound.com/techniques/inside-track-linkin-parks-hunting-party",
+      "year": "2014",
+      "access": "search-indexed interview excerpts; direct fetch unavailable",
+      "scope": "Rock contextual balance and rides, not exact plugin settings."
+    },
+    {
+      "id": "joshua-rosalia",
+      "speaker": "Jaycen Joshua",
+      "title": "Rosalia - Yo x Ti",
+      "url": "https://mixwiththemasters.com/videos/jaycen-joshua-rosalia-yo-x-ti/part/0",
+      "year": null,
+      "access": "public course overview only; paid lesson not accessed",
+      "scope": "Latin pop/reggaeton topic coverage only."
+    }
+  ]
+}

@@ -1,12 +1,14 @@
 import { execFile } from "node:child_process";
 import { GBError } from "./errors.js";
+import { operationContext } from "./operation-context.js";
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 
-function run(
+async function run(
   args: string[],
   timeoutMs: number,
 ): Promise<string> {
+  await operationContext.getStore()?.verify();
   return new Promise((resolve, reject) => {
     execFile(
       "osascript",

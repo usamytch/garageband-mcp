@@ -11,21 +11,28 @@ import { registerLoopTools } from "./tools/loops.js";
 import { registerImportTools } from "./tools/import.js";
 import { registerExportTools } from "./tools/export.js";
 import { registerInspectTools } from "./tools/inspect.js";
+import { registerRegionTools } from "./tools/regions.js";
 import { closeMidi } from "./midi.js";
 import { cancelActive } from "./scheduler.js";
+import { installGuiGuard } from "./guarded-server.js";
+import { registerAutomationTools } from "./tools/automation.js";
 
 const server = new McpServer({
   name: "garageband-mcp",
   version: "0.1.0",
 });
 
+installGuiGuard(server);
+
 registerInspectTools(server);
 registerProjectTools(server);
 registerTransportTools(server);
 registerTrackTools(server);
+registerRegionTools(server);
 registerComposeTools(server);
 registerTempoTools(server);
 registerMixTools(server);
+registerAutomationTools(server);
 registerLoopTools(server);
 registerImportTools(server);
 registerExportTools(server);

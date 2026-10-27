@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "exampleOnly": true,
+  "projectPath": null,
+  "baselineExport": null,
+  "candidateExport": null,
+  "checks": {
+    "decode": "not_run",
+    "sampleClipping": "not_run",
+    "truePeak": "not_run",
+    "loudness": "not_run",
+    "phraseGains": "not_run",
+    "saveReopen": "not_run",
+    "bypassRestore": "not_run"
+  },
+  "listening": {
+    "status": "not_performed",
+    "loudnessMatched": null,
+    "monoChecked": null,
+    "notes": []
+  },
+  "excludedTracksPreserved": null,
+  "temporaryStatesRestored": null,
+  "acceptedChanges": [],
+  "unresolvedIssues": [],
+  "decision": "pending"
+}

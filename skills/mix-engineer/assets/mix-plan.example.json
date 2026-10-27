@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "exampleOnly": true,
+  "project": {
+    "sourcePath": "/absolute/session/Original.band",
+    "workingPath": "/absolute/session/projects/Mix-01.band"
+  },
+  "brief": {
+    "primaryStyle": "rock",
+    "goal": "Keep the vocal intelligible while preserving the guitar and drum impact",
+    "references": []
+  },
+  "excludedTracks": [],
+  "baseline": {
+    "exportPath": null,
+    "normalization": false,
+    "masterProcessing": "inspect and record before export"
+  },
+  "iterations": [
+    {
+      "id": "vocal-balance-01",
+      "track": {
+        "index": 3,
+        "name": "Lead vocal"
+      },
+      "observation": "Verify in the chorus before acting",
+      "hypothesis": "A small level ride may preserve words without changing the whole vocal tone",
+      "action": null,
+      "before": null,
+      "actualReadback": null,
+      "acceptance": [
+        "Compare full mixes at matched loudness",
+        "Check consonants and intentional phrase dynamics"
+      ],
+      "status": "proposed"
+    }
+  ]
+}

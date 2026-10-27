@@ -1,0 +1,34 @@
+# GarageBand adapter: capability and verification contract
+
+Discover tools from the connected server, not a remembered tool count. This fork currently registers 60; another installation may not include the additions. Use `gb_check_permissions` and `gb_list_projects` to inspect readiness. All project-bound tools require the absolute saved `.band` path in `projectPath`. `gb_open_project` takes `path`.
+
+## Reliable primitives within tested scope
+
+- `gb_list_tracks`, `gb_select_track`, `gb_set_track_mute`, `gb_set_track_solo`: inspect current state and set explicit state. Preserve the session's exclusions.
+- `gb_set_track_volume_db`: requests dB and verifies GarageBand readback within its supported tolerance. `gb_set_track_volume` and `gb_set_master_volume` instead use a percentage of fader travel; it is not dB.
+- `gb_set_track_pan`: -100 to 100, with quantized readback.
+- `gb_list_smart_controls`: discover the selected track's actual knobs/switches. Set with `gb_set_smart_control` (0–1 normalized) or `gb_set_smart_switch`. Use an explicit track index. Refresh after switching tracks; reject ambiguous names.
+- `gb_list_regions`, `gb_move_region`: whole-bar ordinary audio/MIDI only, stopped transport, visible source/destination, compatible tracks, no overlaps. Refresh IDs after edits. Fractional regions, Drummer and loops are unsupported; hide automation before region discovery/moves.
+- `gb_export_song`: use explicit filename, format and directory; preserve/restore normalization. Confirm completion and inspect the actual audio file.
+
+A switch labelled “Bypass Compressor” had checked=true when compression was active in one tested patch. Labels alone cannot establish signal processing state across patches. Verify the behavior before describing a switch as bypassed/active.
+
+## Experimental volume automation
+
+`gb_add_volume_automation` requires `trackIndex`, exact `expectedTrackName`, `confirmEmptyVolumeLaneOnCopy: true`, and `points: [{beat, db}, ...]`, plus `projectPath`. The confirmation is valid only for a verified fresh disposable copy and an empty target lane; do not assert it merely to satisfy the schema.
+
+Current constraints:
+
+- Stopped 4/4 project, English interface, unlocked desktop and Screen Recording access.
+- 2–64 strictly increasing points starting at beat 0; beat means zero-based quarter notes, not a one-based bar number.
+- Levels from -20 to 0 dB, within 3 dB of the initial point.
+- All points visible with at least six screen pixels separation. Placement is quantized to pixels, not samples/ticks.
+- Empty Volume lane; the tool does not erase existing automation. An empty screenshot cannot exclude hidden/offscreen points.
+
+The response `drawn_requires_render_verification` is provisional. Keep its evidence directory, requested/placed beats, readback and placement bound. Export, save/reopen and export again. Use controlled bypass/restore if available; the MCP currently has no general automation bypass command. Do not invent it.
+
+## Failure behavior
+
+The FIFO and cross-process lock serialize cooperating GUI operations. A human or another automation program can still interfere. Target checks reduce wrong-project risk but are not a GarageBand transaction. After mismatch, timeout, partial write or focus loss, inspect the project before continuing. Do not reset the global lock file or run a second server to bypass ownership. A crash can leave native work alive even though the lock is released.
+
+The server cannot promise arbitrary Audio Unit parameters in physical units, sample-accurate GUI placement, rollback of a partial edit, or unattended operation across every version. Record unavailable steps in the plan; request a bounded manual action only if needed to complete the authorized goal.

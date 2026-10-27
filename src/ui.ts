@@ -244,9 +244,11 @@ export async function clickAt(x: number, y: number): Promise<void> {
     ObjC.import('CoreGraphics');
     const pt = { x: ${x}, y: ${y} };
     const down = $.CGEventCreateMouseEvent($(), $.kCGEventLeftMouseDown, pt, $.kCGMouseButtonLeft);
+    $.CGEventSetIntegerValueField(down, $.kCGMouseEventClickState, 1);
     $.CGEventPost($.kCGHIDEventTap, down);
     delay(0.04);
     const up = $.CGEventCreateMouseEvent($(), $.kCGEventLeftMouseUp, pt, $.kCGMouseButtonLeft);
+    $.CGEventSetIntegerValueField(up, $.kCGMouseEventClickState, 1);
     $.CGEventPost($.kCGHIDEventTap, up);
     'OK';
   `;

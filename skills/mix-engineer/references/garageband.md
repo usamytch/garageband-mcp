@@ -1,6 +1,8 @@
 # GarageBand adapter: capability and verification contract
 
-Discover tools from the connected server, not a remembered tool count. This fork currently registers 60; another installation may not include the additions. Use `gb_check_permissions` and `gb_list_projects` to inspect readiness. All project-bound tools require the absolute saved `.band` path in `projectPath`. `gb_open_project` takes `path`.
+Discover tools from the connected server, not a remembered tool count. This fork currently registers 61; another installation may not include the additions. Use `gb_check_permissions` and `gb_list_projects` to inspect readiness. All project-bound tools require the absolute saved `.band` path in `projectPath`. `gb_open_project` takes `path`.
+
+Use `gb_set_automation_view` with `visible: false` before region reads/moves; repeated calls are idempotent and do not bypass or edit curves. `gb_list_regions` exposes literal `startPosition`/`endPosition` bar/beat/division/tick fields. Missing units are null, not zero. Fractional readback does not enable fractional moves: the whole-bar movement preconditions still apply.
 
 ## Reliable primitives within tested scope
 

@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { parseRegion, planMove, regionId, verifyMove, verifySelection, type RegionState, type RegionTrack } from "../src/region-model.js";
+import { parseRegion, parseRegionPositions, planMove, regionId, verifyMove, verifySelection, type RegionState, type RegionTrack } from "../src/region-model.js";
 
 function region(trackIndex: number, startBar: number, endBar: number, name = "Guitar", kind: "audio" | "midi" = "audio"): RegionState {
   const help = `Region starts at ${startBar} bars  and ends at ${endBar} bars , ${kind === "midi" ? "MIDI" : "Audio"} region. Recorded test.`;
-  const state = { trackIndex, index: 1, name, kind, startBar, endBar, selected: false, help };
+  const state = { trackIndex, index: 1, name, kind, startBar, endBar, ...parseRegionPositions(help), selected: false, help };
   return { ...state, id: regionId("fixture", state) };
 }
 const tracks = (): RegionTrack[] => [
@@ -46,6 +46,34 @@ test("move planning rejects stale IDs, collisions, incompatible tracks and inval
   assert.throws(() => planMove(before, "stale", 5), { code: "INVALID_INPUT" });
   before[1].regions[0].startBar = null;
   assert.throws(() => planMove(before, id, 1, 2), { code: "INVALID_INPUT" });
+});
+
+test("region positions retain fractional display units without inventing omitted units or a tick rate", () => {
+  const help = "Region starts at 10 bars 3 beats 2 divisions  and ends at 15 bars 3 beats 2 divisions 121 ticks , Audio region.";
+  assert.deepEqual(parseRegionPositions(help), {
+    startPosition: { bar: 10, beat: 3, division: 2, tick: null, text: "10 bars 3 beats 2 divisions" },
+    endPosition: { bar: 15, beat: 3, division: 2, tick: 121, text: "15 bars 3 beats 2 divisions 121 ticks" },
+  });
+  for (const [text, values] of [
+    ["1 bar", [1, null, null, null]],
+    ["20 bars 61 ticks", [20, null, null, 61]],
+    ["4 bars 2 divisions", [4, null, 2, null]],
+    ["4 bars 7 beats 1 division 0 ticks", [4, 7, 1, 0]],
+  ] as const) {
+    const position = parseRegionPositions(`Region starts at ${text} and ends at 30 bars , Audio region.`).startPosition;
+    assert.deepEqual(position, { bar: values[0], beat: values[1], division: values[2], tick: values[3], text });
+  }
+  const state = { ...region(1, 10, 15), ...parseRegion(help), ...parseRegionPositions(help), help };
+  assert.equal(state.startBar, null);
+  assert.throws(() => planMove([{ index: 1, name: "Guitar", audio: true, regions: [state] }], state.id, 20), { code: "INVALID_INPUT" });
+});
+
+test("region position parsing fails closed on unknown, malformed or unsafe coordinates", () => {
+  for (const text of ["0 bars", "2 bars 0 beats", "2 bars 0 divisions", "2 bars -1 ticks", "2 bars 1.5 beats", "2 bars 4 ticks 3 beats", "2 bars 3 beats 4 beats", "2 bars extra", "9007199254740993 bars", "2 bars 9007199254740993 ticks"]) {
+    assert.equal(parseRegionPositions(`Region starts at ${text} and ends at 30 bars , Audio region.`).startPosition, null, text);
+  }
+  assert.deepEqual(parseRegionPositions("Начало: 1 такт"), { startPosition: null, endPosition: null });
+  assert.equal(parseRegion("Region starts at 1 bar and ends at 9007199254740993 bars , Audio region.").endBar, null);
 });
 
 test("move verification requires the target, unchanged length, no lost/duplicated/damaged neighbors", () => {

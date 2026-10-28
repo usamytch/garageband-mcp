@@ -5,7 +5,8 @@ import * as gb from "../applescript.js";
 import * as ui from "../ui.js";
 import { sleep } from "../osa.js";
 
-export function registerProjectTools(server: McpServer): void {
+export function registerProjectTools(server: McpServer, services = { gb, ui }): void {
+  const { gb, ui } = services;
   server.registerTool(
     "gb_launch",
     {
@@ -16,6 +17,7 @@ export function registerProjectTools(server: McpServer): void {
     async () =>
       guarded(async () => {
         await gb.launchAndWait();
+        await ui.ensureReady();
         if (await gb.chooserOpen()) {
           return ok(
             "GarageBand is running and showing the project chooser. Use gb_new_project to create a project, or gb_open_project with a path.",

@@ -56,6 +56,7 @@ Project-bound tools require an absolute `projectPath` to an existing saved `.ban
 | `gb_set_smart_control` | Set Smart Control | Yes |
 | `gb_set_smart_switch` | Set Smart Controls switch | Yes |
 | `gb_set_track_volume_db` | Set track volume in dB | Yes |
+| `gb_set_automation_view` | Show or hide track automation | Yes |
 | `gb_add_volume_automation` | Draw volume automation on a fresh copy | Yes |
 | `gb_search_loops` | Search Apple Loops | Yes |
 | `gb_add_loop` | Add loop to project | Yes |

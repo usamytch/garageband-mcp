@@ -3,6 +3,7 @@ import { test } from "node:test";
 import { runInNewContext } from "node:vm";
 import { AX_SCRIPT } from "../src/native-ax.js";
 import { REGION_SCRIPT } from "../src/region-state.js";
+import { AUTOMATION_VIEW_SCRIPT } from "../src/automation-view.js";
 
 type Element = Record<string, unknown>;
 const node = (role: string, desc: string, children: Element[] = [], attributes: Element = {}): Element => ({ AXRole: role, AXDescription: desc, AXChildren: children, ...attributes });
@@ -52,6 +53,13 @@ test("native actions check the document again after discovery, including encoded
 
 test("region operations refuse the automation view with unreliable GarageBand lane labels", () => {
   assert.throws(() => execute("window.element.AXChildren[0].AXChildren.push({ AXRole: 'AXPopUpButton', AXDescription: 'Automation Parameter', AXChildren: [] }); return lanes();"), { code: "INVALID_INPUT" });
+});
+
+test("automation visibility reads actual lane controls and refuses dialogs or empty track views", () => {
+  assert.equal(execute(`${AUTOMATION_VIEW_SCRIPT}\nreturn automationVisible();`), false);
+  assert.equal(execute(`${AUTOMATION_VIEW_SCRIPT}\nwindow.element.AXChildren[0].AXChildren.push({ AXRole: 'AXPopUpButton', AXDescription: 'Automation Parameter', AXChildren: [] }); return automationVisible();`), true);
+  assert.throws(() => execute(`${AUTOMATION_VIEW_SCRIPT}\nreturn automationVisible();`, true), { code: "DIALOG_UNEXPECTED" });
+  assert.throws(() => execute(`${AUTOMATION_VIEW_SCRIPT}\nwindow.element.AXChildren[0].AXChildren = []; return automationVisible();`), { code: "ELEMENT_NOT_FOUND" });
 });
 
 test("actual JXA preflight refuses missing tracks and open dialogs", () => {

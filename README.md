@@ -7,7 +7,7 @@
 
 Fork of [visualfart/garageband-mcp](https://github.com/visualfart/garageband-mcp). It keeps the original MIDI composition tools and adds verified mixer control, guarded GUI operations, region moves, and experimental volume automation. Upstream history and MIT license are preserved.
 
-[Русский](docs/README.ru.md) · [Architecture](docs/architecture.md) · [Mix workflow](docs/mixing-workflow.md) · [60 tools](docs/tools.md) · [Testing](docs/testing.md)
+[Русский](docs/README.ru.md) · [Architecture](docs/architecture.md) · [Mix workflow](docs/mixing-workflow.md) · [61 tools](docs/tools.md) · [Testing](docs/testing.md)
 
 ```mermaid
 flowchart LR

@@ -7,7 +7,7 @@ import { moveRegion, readRegions } from "../region-state.js";
 export function registerRegionTools(server: McpServer): void {
   server.registerTool("gb_list_regions", {
     title: "List regions",
-    description: "Read track/region names, type, whole-bar boundaries, selection, and current region IDs. Null boundaries mean unsupported timing; those regions cannot be moved. IDs must be refreshed after edits.",
+    description: "Read region names, type, selection, IDs and startPosition/endPosition display fields (bar/beat/division/tick). Omitted units are null, not assumed zero; these are not normalized ticks or seconds. Legacy startBar/endBar remain null unless BOTH boundaries are whole bars, as required by gb_move_region. Hide automation with gb_set_automation_view visible=false first. Refresh IDs after edits.",
     inputSchema: {},
   }, async () => guarded(async () => {
     await ui.ensureReady({ needsProject: true });

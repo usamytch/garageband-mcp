@@ -2,11 +2,11 @@ import { GBError } from "./errors.js";
 import { runAX } from "./native-ax.js";
 import { sleep } from "./osa.js";
 import { TRACK_SCRIPT } from "./track-state.js";
-import { parseRegion, planMove, regionId, verifyMove, verifySelection, type RegionState, type RegionTrack } from "./region-model.js";
+import { parseRegion, parseRegionPositions, planMove, regionId, verifyMove, verifySelection, type RegionState, type RegionTrack } from "./region-model.js";
 
 export const REGION_SCRIPT = `${TRACK_SCRIPT}
   function lanes() {
-    if (scan(group('Tracks'), el => scalar(el, 'AXDescription') === 'Automation Parameter').length) fail('INVALID_INPUT', 'Hide automation before reading or moving regions; GarageBand mislabels lanes in this view.');
+    if (scan(group('Tracks'), el => scalar(el, 'AXDescription') === 'Automation Parameter').length) fail('INVALID_INPUT', 'Call gb_set_automation_view with visible=false before reading or moving regions; GarageBand mislabels lanes in automation view.');
     return scan(group('Tracks'), el => scalar(el, 'AXRole') === 'AXLayoutArea' && /^Track \\d+ /.test(scalar(el, 'AXDescription') || ''))
       .map(hit => ({ ...hit, index: Number(/^Track (\\d+) /.exec(scalar(hit.element, 'AXDescription'))[1]) }));
   }
@@ -31,7 +31,7 @@ export async function readRegions(): Promise<{ project: string; projectPath: str
   `);
   return { ...raw, tracks: raw.tracks.map((track) => {
     const regions = track.regions.map((item, index) => {
-      const region = { ...item, ...parseRegion(item.help), trackIndex: track.index, index: index + 1 };
+      const region = { ...item, ...parseRegion(item.help), ...parseRegionPositions(item.help), trackIndex: track.index, index: index + 1 };
       return { ...region, id: regionId(raw.projectPath || raw.project, region) };
     });
     // Monitoring controls also appear on software tracks; they do not identify type.

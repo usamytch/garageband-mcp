@@ -1,6 +1,15 @@
 import { createHash } from "node:crypto";
 import { GBError } from "./errors.js";
 
+/** Literal Accessibility display fields, not normalized timeline coordinates. */
+export interface RegionPosition {
+  bar: number;
+  beat: number | null;
+  division: number | null;
+  tick: number | null;
+  text: string;
+}
+
 export interface RegionState {
   id: string;
   trackIndex: number;
@@ -9,6 +18,8 @@ export interface RegionState {
   kind: "midi" | "audio" | "unsupported";
   startBar: number | null;
   endBar: number | null;
+  startPosition: RegionPosition | null;
+  endPosition: RegionPosition | null;
   selected: boolean;
   help: string;
 }
@@ -26,8 +37,22 @@ export function parseRegion(help: string): Pick<RegionState, "kind" | "startBar"
   const match = /^Region starts at (\d+) bars?\s+and ends at (\d+) bars?\s*,/.exec(help);
   const startBar = match ? Number(match[1]) : null;
   const endBar = match ? Number(match[2]) : null;
-  return startBar !== null && endBar !== null && startBar >= 1 && endBar > startBar
+  return startBar !== null && endBar !== null && Number.isSafeInteger(startBar) && Number.isSafeInteger(endBar) && startBar >= 1 && endBar > startBar
     ? { kind, startBar, endBar } : { kind, startBar: null, endBar: null };
+}
+
+/** Preserve omitted units as null; do not assume a meter, division size or tick rate. */
+export function parseRegionPositions(help: string): Pick<RegionState, "startPosition" | "endPosition"> {
+  const range = /^Region starts at (.+?)\s+and ends at (.+?)\s*,/.exec(help);
+  const position = (text: string | undefined): RegionPosition | null => {
+    if (!text) return null;
+    const match = /^(\d+) bars?(?:\s+(\d+) beats?)?(?:\s+(\d+) divisions?)?(?:\s+(\d+) ticks?)?$/.exec(text.trim());
+    if (!match) return null;
+    const values = match.slice(1).map((value) => value === undefined ? null : Number(value));
+    if (values.some((value, index) => value !== null && (!Number.isSafeInteger(value) || value < (index === 3 ? 0 : 1)))) return null;
+    return { bar: values[0]!, beat: values[1], division: values[2], tick: values[3], text: text.trim() };
+  };
+  return { startPosition: position(range?.[1]), endPosition: position(range?.[2]) };
 }
 
 export function regionId(project: string, region: Omit<RegionState, "id">): string {

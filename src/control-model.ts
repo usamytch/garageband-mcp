@@ -58,6 +58,41 @@ export function setToggle(enabled: boolean | undefined, io: { read(): boolean; c
   return target;
 }
 
+// Pointer position need not be linear in the reported slider value.
+export function drivePointerSlider(
+  initial: SliderState,
+  target: number,
+  tolerance: number,
+  io: { read(): number; click(fraction: number): void; wait(seconds: number): void; now(): number },
+): SliderState {
+  if (![initial.value, initial.min, initial.max, target, tolerance].every(Number.isFinite) || initial.max <= initial.min || target < initial.min || target > initial.max || tolerance <= 0) {
+    throw { code: "INVALID_INPUT", message: "Pointer slider target or numeric range is invalid." };
+  }
+  let current = initial.value, low = 0, high = 1;
+  let position = (target - initial.min) / (initial.max - initial.min);
+  const deadline = io.now() + 12000;
+  for (let step = 0; step <= 20 && io.now() < deadline; step++) {
+    if (Math.abs(current - target) <= tolerance) {
+      io.wait(0.25);
+      const settled = io.read();
+      if (!Number.isFinite(settled) || Math.abs(settled - target) > tolerance) {
+        throw { code: "VERIFICATION_FAILED", message: "Pointer slider did not retain the requested value." };
+      }
+      return { ...initial, value: settled };
+    }
+    if (step === 20) break;
+    io.click(position);
+    current = io.read();
+    if (!Number.isFinite(current) || current < initial.min || current > initial.max) {
+      throw { code: "VERIFICATION_FAILED", message: "Pointer slider readback is invalid." };
+    }
+    if (current < target) low = position;
+    else high = position;
+    position = (low + high) / 2;
+  }
+  throw { code: "VERIFICATION_FAILED", message: "Pointer slider did not reach the requested value. Inspect the view before retrying." };
+}
+
 export function parseDecibels(description: string | null): number | null {
   if (description === null) return null;
   if (/^[−-]?∞\s*dB$/.test(description)) return -Infinity;

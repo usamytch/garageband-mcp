@@ -74,3 +74,7 @@ test("track discovery keeps missing optional faders readable", () => {
   assert.equal(result.volumeDescription, null);
   assert.equal(result.volumeDb, null);
 });
+
+test("generic AX slider writes reject timeline zoom before any mutation", () => {
+  assert.throws(() => execute("setSlider({ element: { AXHelp: 'Horizontal Zoom, Horizontal Zoom slider.', AXValue: 0.3, AXMinValue: 0, AXMaxValue: 1 } }, 0.4, 0.01);"), { code: "INVALID_INPUT" });
+});

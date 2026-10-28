@@ -1,0 +1,25 @@
+noSheet();
+Application('GarageBand').activate();delay(.2);
+for(const name of ['Play','Record']) {
+  const hit=one(scan(group('Control Bar'),el=>scalar(el,'AXRole')==='AXCheckBox' && scalar(el,'AXDescription')===name),name);
+  if(Number(scalar(hit.element,'AXValue'))!==0) fail('INVALID_INPUT','Transport must be stopped');
+}
+const controls={};
+for(const name of ['bar','beat','division','tick'])controls[name]=one(scan(group('Control Bar'),el=>scalar(el,'AXRole')==='AXSlider' && scalar(el,'AXDescription')===name),name);
+const stop=one(scan(group('Control Bar'),el=>scalar(el,'AXRole')==='AXButton' && ['Stop','Go to Beginning'].includes(scalar(el,'AXDescription'))),'rewind');
+click(stop);
+for(const name of ['bar','beat','division','tick']) {
+  const wanted=params[name]??1;
+  if(!Number.isInteger(wanted) || wanted<1 || wanted>({bar:1000,beat:4,division:4,tick:240})[name])fail('INVALID_INPUT','Unsupported musical position');
+  const hit=controls[name];
+  let current=Number(scalar(hit.element,'AXValue'));
+  for(let step=0;step<1000 && current!==wanted;step++) {
+    if($.AXUIElementSetAttributeValue(hit.element,$('AXValue'),$(wanted))!==0)fail('VERIFICATION_FAILED','Position write failed');
+    delay(.002);
+    const next=Number(scalar(hit.element,'AXValue'));
+    if(Math.abs(next-wanted)>=Math.abs(current-wanted))fail('VERIFICATION_FAILED','Position stopped approaching target');
+    current=next;
+  }
+  if(current!==wanted)fail('VERIFICATION_FAILED','Position not reached');
+}
+return Object.fromEntries(Object.entries(controls).map(([name,hit])=>[name,scalar(hit.element,'AXValue')]));

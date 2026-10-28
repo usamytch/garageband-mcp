@@ -1,11 +1,12 @@
 import { GBError, type GBErrorCode } from "./errors.js";
 import { runJXA } from "./osa.js";
-import { driveSlider, faderTarget, setToggle, parseDecibels, driveDecibels } from "./control-model.js";
+import { driveSlider, drivePointerSlider, faderTarget, setToggle, parseDecibels, driveDecibels } from "./control-model.js";
 import { operationContext } from "./operation-context.js";
 
 /** Native AX avoids hundreds of slow System Events round trips per tree scan. */
 export const AX_SCRIPT = `
   const driveSlider = ${driveSlider.toString()};
+  const drivePointerSlider = ${drivePointerSlider.toString()};
   const faderTarget = ${faderTarget.toString()};
   const setToggle = ${setToggle.toString()};
   const parseDecibels = ${parseDecibels.toString()};
@@ -158,12 +159,47 @@ export const AX_SCRIPT = `
     return { value: value, min: min, max: max };
   }
   function setSlider(hit, target, tolerance, settledTolerance) {
+    if (/^Horizontal Zoom/.test(scalar(hit.element, 'AXHelp') || '')) {
+      fail('INVALID_INPUT', 'Never write AXValue on timeline zoom: GarageBand can crash on the next project open. Use setTimelineZoom instead.');
+    }
     return driveSlider(sliderInfo(hit), target, tolerance, settledTolerance === undefined ? tolerance : settledTolerance, {
       read: () => scalar(hit.element, 'AXValue'),
       write: value => {
         assertTarget();
         const status = $.AXUIElementSetAttributeValue(hit.element, $('AXValue'), $(value));
         if (status !== 0) fail('VERIFICATION_FAILED', 'AXValue write failed: ' + status);
+      },
+      wait: delay,
+      now: () => Date.now()
+    });
+  }
+  function setTimelineZoom(target) {
+    noSheet();
+    const area = group('Tracks');
+    const hit = one(scan(area, el => scalar(el, 'AXRole') === 'AXSlider' && /^Horizontal Zoom/.test(scalar(el, 'AXHelp') || '')).filter(item => item.path.length === area.path.length + 1), 'timeline zoom');
+    const initial = sliderInfo(hit);
+    // AXValue can cause a later CLgZoomSliderView crash in GarageBand 10.4.14.
+    // Native clicks nudge this control by about 0.086; return the actual value.
+    return drivePointerSlider(initial, target, (initial.max - initial.min) * 0.05, {
+      read: () => scalar(hit.element, 'AXValue'),
+      click: fraction => {
+        assertTarget();
+        if (!process.frontmost()) fail('NOT_FRONTMOST', 'GarageBand lost focus before zooming.');
+        if (process.windows[0].name() !== scalar(window.element, 'AXTitle')) fail('VERIFICATION_FAILED', 'The front window changed before zooming.');
+        const box = geometry(hit);
+        if (box.size[0] < 12 || box.size[1] < 4) fail('ELEMENT_NOT_FOUND', 'Timeline zoom has no usable bounds.');
+        const point = { x: box.pos[0] + 1 + fraction * (box.size[0] - 2), y: box.pos[1] + box.size[1] / 2 };
+        visible(point, box.clips);
+        function mouse(type) {
+          const event = $.CGEventCreateMouseEvent(null, type, point, $.kCGMouseButtonLeft);
+          $.CGEventSetFlags(event, 0);
+          $.CGEventSetIntegerValueField(event, $.kCGMouseEventClickState, 1);
+          $.CGEventPost($.kCGHIDEventTap, event);
+        }
+        mouse($.kCGEventLeftMouseDown);
+        try { delay(0.06); }
+        finally { mouse($.kCGEventLeftMouseUp); }
+        delay(0.2);
       },
       wait: delay,
       now: () => Date.now()

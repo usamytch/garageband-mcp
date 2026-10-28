@@ -9,6 +9,8 @@ Fork of [visualfart/garageband-mcp](https://github.com/visualfart/garageband-mcp
 
 [Русский](docs/README.ru.md) · [Architecture](docs/architecture.md) · [Mix workflow](docs/mixing-workflow.md) · [61 tools](docs/tools.md) · [Testing](docs/testing.md)
 
+Local editing helpers: [onset analysis and WAV extraction](docs/onset-editing.md), including the verified workaround for the GarageBand timeline-zoom crash. These are optional offline scripts and guarded GUI examples, not additional MCP tools.
+
 ```mermaid
 flowchart LR
     A[You + mixing skill] --> B[MCP client]

@@ -1,0 +1,37 @@
+noSheet();
+for (const name of ['Play','Record']) {
+  const hit=one(scan(group('Control Bar'),el=>scalar(el,'AXRole')==='AXCheckBox' && scalar(el,'AXDescription')===name),name);
+  if(Number(scalar(hit.element,'AXValue'))!==0)fail('INVALID_INPUT','Transport must be stopped');
+}
+if(!Number.isInteger(params.trackIndex) || params.trackIndex<1 || typeof params.regionName!=='string' || !params.regionName)fail('INVALID_INPUT','Expected trackIndex and exact regionName');
+for(const name of ['bar','beat','division','tick']) {
+  const expected=params.position?.[name];
+  if(!Number.isInteger(expected) || expected<1)fail('INVALID_INPUT','Provide the verified expected playhead position');
+  const hit=one(scan(group('Control Bar'),el=>scalar(el,'AXRole')==='AXSlider' && scalar(el,'AXDescription')===name),name);
+  if(scalar(hit.element,'AXValue')!==expected)fail('VERIFICATION_FAILED','Playhead changed before the split');
+}
+const lanes=scan(group('Tracks'),el=>scalar(el,'AXRole')==='AXLayoutArea' && /^Track \d+ /.test(scalar(el,'AXDescription')||''));
+const regions=lane=>scan(lane,el=>scalar(el,'AXRole')==='AXLayoutItem' && /^Region starts at/.test(scalar(el,'AXHelp')||''));
+const snapshot=()=>lanes.map(lane=>({track:scalar(lane.element,'AXDescription'),regions:regions(lane).map(hit=>({name:scalar(hit.element,'AXDescription'),help:scalar(hit.element,'AXHelp')}))}));
+const target=one(lanes.filter(lane=>(scalar(lane.element,'AXDescription')||'').startsWith('Track '+params.trackIndex+' ')),'target lane');
+const before=snapshot();
+let selected=0;
+for(const lane of lanes)for(const hit of regions(lane)) {
+  if(scalar(hit.element,'AXSelected')===true) {
+    selected++;
+    if(lane!==target || scalar(hit.element,'AXDescription')!==params.regionName)fail('INVALID_INPUT','Foreign region selected');
+  }
+}
+if(selected!==1)fail('INVALID_INPUT','Select exactly one intended region before splitting');
+assertTarget();
+if(!process.frontmost())fail('NOT_FRONTMOST','GarageBand must be frontmost');
+process.menuBars[0].menuBarItems.byName('Edit').menus[0].menuItems.byName('Split Regions at Playhead').click();
+delay(.2);
+// Reacquire region objects after the mutation; prior AX handles can be stale.
+const after=snapshot();
+for(let i=0;i<before.length;i++) {
+  if(before[i].track!==scalar(target.element,'AXDescription')) {
+    if(JSON.stringify(before[i])!==JSON.stringify(after[i]))fail('VERIFICATION_FAILED','Another track changed; stop and inspect');
+  } else if(after[i].regions.length!==before[i].regions.length+1)fail('VERIFICATION_FAILED','Split did not add exactly one region; stop and inspect');
+}
+return {before,after};

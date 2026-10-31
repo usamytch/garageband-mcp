@@ -3,13 +3,14 @@ import { test } from "node:test";
 import { copyFile, link, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { createHash } from "node:crypto";
-import { createExportJob, loadExportJob, requestedSettings, saveExportJob } from "../src/export-job.js";
+import { createExportJob, loadExportJob, mixerRestorationIssue, requestedSettings, saveExportJob } from "../src/export-job.js";
 import { executeExportJob, type ExportDriver } from "../src/export-runner.js";
 import { checkExportRecovery, claimExportFence, clearExportFence } from "../src/export-recovery.js";
+import { exportJobStatus } from "../src/export-launch.js";
 
 async function fixture() {
   const root = await mkdtemp(resolve("test-build/export-jobs-"));
-  const state = new Map([["1:solo", false], ["Auto Normalize", true]]);
+  const state = new Map([["1:solo", false], ["1:mute", false], ["Auto Normalize", true]]);
   const calls: string[] = [];
   const driver: ExportDriver = {
     prepare: async () => {},
@@ -41,6 +42,140 @@ test("durable batch restores original settings, publishes once and rejects reuse
     await executeExportJob(f.root, f.job.id, f.driver);
     assert.equal(f.calls.filter(x => x === "render").length, 1);
     await assert.rejects(createExportJob(f.root, { ...f.request, jobs: [{ filename: "other", tracks: [] }] }, "intro-10"), /different export plan/);
+  } finally { await f.cleanup(); }
+});
+
+for (const explicitMute of [false, true]) test(`muted-track Solo export restores both controls (explicit Mute: ${explicitMute})`, async () => {
+  const f = await fixture();
+  try {
+    f.state.set("1:mute", true);
+    const tracks = [{ index: 1, name: "acoustic", solo: true, ...(explicitMute ? { mute: false } : {}) }];
+    const { job } = await createExportJob(f.root, { ...f.request, jobs: [{ filename: "muted vocal", tracks }] }, "muted-vocal");
+    const write = f.driver.write;
+    f.driver.write = async (setting, value) => {
+      await write(setting, value);
+      if (value && setting.field !== "normalize") f.state.set(`1:${setting.field === "solo" ? "mute" : "solo"}`, false);
+    };
+    const render = f.driver.render;
+    f.driver.render = async path => {
+      assert.equal(f.state.get("1:solo"), true); assert.equal(f.state.get("1:mute"), false);
+      await render(path);
+    };
+    const done = await executeExportJob(f.root, job.id, f.driver);
+    assert.equal(done.status, "completed");
+    assert.equal(done.version, 2);
+    assert.equal(mixerRestorationIssue(done), undefined);
+    assert.equal(f.state.get("1:solo"), false); assert.equal(f.state.get("1:mute"), true);
+    assert.deepEqual(f.calls, ["write:1:mute:false", "write:1:solo:true", "render", "write:1:solo:false", "write:1:mute:true"]);
+  } finally { await f.cleanup(); }
+});
+
+test("coupled setup failure after the Solo click restores its indirect Mute change", async () => {
+  const f = await fixture();
+  try {
+    f.state.set("1:mute", true);
+    const write = f.driver.write;
+    f.driver.write = async (setting, value) => {
+      await write(setting, value);
+      if (setting.field === "solo" && value) { f.state.set("1:mute", false); throw new Error("lost native reply"); }
+    };
+    const failed = await executeExportJob(f.root, f.job.id, f.driver);
+    assert.equal(failed.status, "needs_review"); assert.match(failed.error!, /lost native reply/);
+    assert.equal(mixerRestorationIssue(failed), undefined);
+    assert.equal(f.state.get("1:solo"), false); assert.equal(f.state.get("1:mute"), true);
+    assert.equal(f.calls.includes("render"), false);
+  } finally { await f.cleanup(); }
+});
+
+test("final coupled restoration readback cannot report success after a peer changes again", async () => {
+  const f = await fixture();
+  try {
+    f.state.set("1:mute", true);
+    const write = f.driver.write;
+    f.driver.write = async (setting, value) => {
+      await write(setting, value);
+      if (setting.field === "mute" && value) f.state.set("1:solo", true);
+      if (setting.field === "solo" && !value) f.state.set("1:mute", false);
+    };
+    const failed = await executeExportJob(f.root, f.job.id, f.driver);
+    assert.equal(failed.status, "needs_review"); assert.match(failed.error!, /Final restore readback/);
+    assert.ok(mixerRestorationIssue(failed));
+    await assert.rejects(readFile(failed.items[0].target), { code: "ENOENT" });
+  } finally { await f.cleanup(); }
+});
+
+test("legacy restore uses a known Mute snapshot even when only Solo was marked attempted", async () => {
+  const f = await fixture();
+  try {
+    const { job } = await createExportJob(f.root, { ...f.request, jobs: [{ filename: "legacy", tracks: [{ index: 1, name: "acoustic", solo: true, mute: false }] }] }, "legacy");
+    job.version = 1; job.status = "needs_review"; job.items[0].phase = "prepared";
+    job.items[0].settings = requestedSettings(job.request.jobs[0], 1);
+    const [solo, mute] = job.items[0].settings;
+    solo.attempted = true; solo.restored = true; mute.before = true;
+    await saveExportJob(f.root, job);
+    assert.match(mixerRestorationIssue(job)!, /not verified/);
+    const restored = await executeExportJob(f.root, job.id, f.driver, true);
+    assert.equal(restored.status, "abandoned"); assert.equal(mixerRestorationIssue(restored), undefined);
+    assert.equal(f.state.get("1:solo"), false); assert.equal(f.state.get("1:mute"), true);
+    assert.deepEqual(f.calls, ["write:1:mute:true"]);
+  } finally { await f.cleanup(); }
+});
+
+test("legacy Solo-only restoration reports its missing peer snapshot without inventing Mute", async () => {
+  const f = await fixture();
+  try {
+    const job = await loadExportJob(f.root, f.job.id);
+    job.version = 1; job.status = "needs_review"; job.items[0].phase = "prepared";
+    job.items[0].settings = requestedSettings(job.request.jobs[0], 1);
+    job.items[0].settings[0].attempted = true;
+    job.items[0].settings[1].before = true;
+    await saveExportJob(f.root, job);
+    f.state.set("1:solo", true);
+    const failed = await executeExportJob(f.root, job.id, f.driver, true);
+    assert.equal(failed.status, "needs_review"); assert.match(failed.error!, /not recorded/);
+    assert.ok(mixerRestorationIssue(failed));
+    assert.equal(f.state.get("1:solo"), false);
+    assert.deepEqual(f.calls, ["write:1:solo:false"]);
+  } finally { await f.cleanup(); }
+});
+
+test("an abandoned legacy journal cannot claim restoration of a known but unchecked peer", async () => {
+  const f = await fixture();
+  try {
+    const { job } = await createExportJob(f.root, { ...f.request, jobs: [{ filename: "legacy status", tracks: [{ index: 1, name: "acoustic", solo: true, mute: false }] }] }, "legacy-status");
+    job.version = 1; job.status = "abandoned"; job.items[0].phase = "prepared";
+    job.items[0].settings = requestedSettings(job.request.jobs[0], 1);
+    job.items[0].settings[0].attempted = true; job.items[0].settings[0].restored = true;
+    job.items[0].settings[1].before = true;
+    await saveExportJob(f.root, job);
+    const status = await exportJobStatus(f.root, job.id, join(f.root, "unused-fence.json"));
+    assert.equal(status.mixerRestored, false); assert.match(status.mixerRestorationWarning!, /not verified/);
+    assert.equal((await executeExportJob(f.root, job.id, f.driver, true)).status, "abandoned");
+    assert.deepEqual(f.calls, []);
+  } finally { await f.cleanup(); }
+});
+
+test("a pending legacy journal retains its schema and refuses an unrecorded coupled control before writes", async () => {
+  const f = await fixture();
+  try {
+    const job = await loadExportJob(f.root, f.job.id);
+    job.version = 1; await saveExportJob(f.root, job);
+    const stopped = await executeExportJob(f.root, job.id, f.driver);
+    assert.equal(stopped.status, "needs_review"); assert.match(stopped.error!, /no coupled mixer snapshot/);
+    assert.equal((await loadExportJob(f.root, job.id)).version, 1);
+    assert.deepEqual(stopped.items[0].settings.map(setting => setting.key), ["1:solo", "Auto Normalize"]);
+    assert.deepEqual(f.calls, []);
+  } finally { await f.cleanup(); }
+});
+
+test("contradictory requests and an unrestorable Solo/Mute snapshot cause no mixer writes", async () => {
+  const f = await fixture();
+  try {
+    await assert.rejects(createExportJob(f.root, { ...f.request, jobs: [{ filename: "conflict", tracks: [{ index: 1, name: "acoustic", solo: true, mute: true }] }] }, "conflict"), /both Solo and Mute/);
+    f.state.set("1:solo", true); f.state.set("1:mute", true);
+    const failed = await executeExportJob(f.root, f.job.id, f.driver);
+    assert.match(failed.error!, /both Solo and Mute enabled/);
+    assert.deepEqual(f.calls, []);
   } finally { await f.cleanup(); }
 });
 
@@ -180,7 +315,7 @@ test("prepared snapshots refuse changed track state, and journals cannot redirec
     const job = await loadExportJob(f.root, f.job.id);
     job.items[0].phase = "prepared";
     job.items[0].settings = requestedSettings(job.request.jobs[0]);
-    job.items[0].settings[1].before = true;
+    job.items[0].settings.find(setting => setting.field === "normalize")!.before = true;
     await saveExportJob(f.root, job);
     f.state.set("1:solo", true);
     assert.equal((await executeExportJob(f.root, job.id, f.driver)).status, "needs_review");

@@ -1,0 +1,112 @@
+{
+  "version": 1,
+  "checkedAt": "2026-11-01",
+  "scope": "Primary documentation for vocal pitch, formants and vocoder workflows; no listening or local plugin compatibility is implied.",
+  "sources": [
+    {
+      "id": "apple-gb-pitch",
+      "publisher": "Apple",
+      "title": "Correct the pitch of all regions on an audio track in GarageBand on Mac",
+      "url": "https://support.apple.com/en-euro/guide/garageband/gbnde08420a0/mac",
+      "coverage": "Full public text read; GarageBand 10.4.14 guide selected.",
+      "supports": ["Track-wide scope", "Monophonic material", "Chromatic default and Limit to Key"]
+    },
+    {
+      "id": "celemony-modulation-drift",
+      "publisher": "Celemony",
+      "title": "Pitch modulation and drift",
+      "url": "https://helpcenter.celemony.com/M5/doc/melodyneStudio5/en/M5tour_ToolModulationDrift_2",
+      "coverage": "Full public text read; documentation, not purchased training.",
+      "supports": ["Pitch center, modulation and drift are distinct editing dimensions", "Flattening modulation and drift can create an effect"],
+      "limits": "Does not establish equivalent controls in GarageBand or free software."
+    },
+    {
+      "id": "librosa-pyin",
+      "publisher": "librosa developers",
+      "title": "librosa.pyin 0.11.0",
+      "url": "https://librosa.org/doc/0.11.0/generated/librosa.pyin.html",
+      "coverage": "Public API documentation read.",
+      "supports": ["F0 plus voiced flags/probability", "Undefined unvoiced estimates", "Frame-centering convention"],
+      "limits": "An estimate does not determine intended melody; optional dependency, not installed by this research."
+    },
+    {
+      "id": "graillon-product",
+      "publisher": "Auburn Sounds",
+      "title": "Graillon v3.2",
+      "url": "https://www.auburnsounds.com/products/Graillon.html",
+      "coverage": "Public product page read.",
+      "supports": ["Free edition offered", "AU format", "Pitch correction, shifting and formant features", "Full-only PTM, keyboard tuning and doubler"],
+      "limits": "Product page still labels third engine I1; current 3.2 manual says I2. No local compatibility test."
+    },
+    {
+      "id": "graillon-manual",
+      "publisher": "Auburn Sounds",
+      "title": "Graillon 3 User's Guide, version 3.2.0",
+      "url": "https://www.auburnsounds.com/downloads/Graillon%203%20User%27s%20Guide.pdf",
+      "coverage": "Public 19-page manual read selectively, especially pitch/correction controls on pages 11–13.",
+      "supports": ["Smooth, Inertia, Snap Min and Snap Max semantics", "Separate formant preservation and formant shift", "I2 engine name"],
+      "limits": "Parameter semantics do not prove MCP automation access or that a particular setting suits a song."
+    },
+    {
+      "id": "tal-product",
+      "publisher": "TAL Software",
+      "title": "TAL-Vocoder product and version history",
+      "url": "https://tal-software.com/products/tal-vocoder",
+      "coverage": "Full public product text read.",
+      "supports": ["AU build", "Internal synthesizer and external input possibilities", "v3 removes old L/R routing"],
+      "limits": "No installed-version, licensing-state or GarageBand routing validation."
+    },
+    {
+      "id": "tal-manual",
+      "publisher": "TAL Software",
+      "title": "TAL-Vocoder User Manual",
+      "url": "https://tal-software.com/downloads/docs/TAL-Vocoder-UserManual.pdf",
+      "coverage": "Public 14-page manual read, especially pages 6–8.",
+      "supports": ["Carrier plus modulator required", "MIDI-triggered internal carrier", "Input meters, release and consonant enhancement", "Host-specific routing examples"],
+      "limits": "Names GarageBand among tested hosts but does not show its routing recipe; demo/licensing text is internally inconsistent with other product labels, so do not infer unconditional free licensed use."
+    },
+    {
+      "id": "audacity-vocoder",
+      "publisher": "Audacity developers",
+      "title": "Vocoder",
+      "url": "https://manual.audacityteam.org/man/vocoder.html",
+      "coverage": "Public manual read.",
+      "supports": ["Offline multiband vocoder", "Left modulator and right carrier in unsplit stereo track", "Output channel choices"],
+      "limits": "Routing applies to Audacity's effect, not to TAL v3 or GarageBand. Audacity was not installed or operated."
+    },
+    {
+      "id": "rubberband-project",
+      "publisher": "Breakfast Quay / Chris Cannam",
+      "title": "Rubber Band Library README",
+      "url": "https://github.com/breakfastquay/rubberband/blob/default/README.md",
+      "coverage": "Official GitHub mirror README read.",
+      "supports": ["Independent tempo/pitch processing", "R2/R3 distinction", "Library and CLI availability", "Distribution licensing conditions"],
+      "limits": "Not a pitch detector or complete automatic tuner. No dependency installed by this research."
+    },
+    {
+      "id": "rubberband-cli",
+      "publisher": "Breakfast Quay / Chris Cannam",
+      "title": "Rubber Band command-line implementation",
+      "url": "https://github.com/breakfastquay/rubberband/blob/default/main/main.cpp",
+      "coverage": "Official code/help text read selectively.",
+      "supports": ["Standalone --pitch uses semitone offsets", "Formant-preservation option", "Pitch/frequency maps and engine options"],
+      "limits": "Check installed version; dynamic pitch mapping has engine/mode and latency consequences."
+    },
+    {
+      "id": "ffmpeg-rubberband",
+      "publisher": "FFmpeg developers",
+      "title": "FFmpeg Filters: rubberband",
+      "url": "https://ffmpeg.org/ffmpeg-filters.html#rubberband",
+      "coverage": "Public filter documentation read.",
+      "supports": ["Optional librubberband build", "Pitch ratio and tempo ratio", "Formant preservation"],
+      "limits": "FFmpeg filter options differ from standalone CLI units; inspect local build before rendering."
+    }
+  ],
+  "researchLimits": [
+    "No private or paid training was accessed.",
+    "No vocal was listened to or processed during this documentation research.",
+    "No plugin was installed, purchased or locally compatibility-tested.",
+    "Apple transpose/key/AU guide links were resolved from the official contents, but those pages repeatedly returned HTTP 429. Exact current ranges and follow-tempo behavior are therefore live-verification requirements, not newly verified claims here.",
+    "Style decisions and the proposed signal-chain order are the skill's reasoned working hypotheses, not exact artist/engineer presets."
+  ]
+}

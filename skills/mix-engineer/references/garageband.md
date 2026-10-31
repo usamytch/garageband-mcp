@@ -1,6 +1,6 @@
 # GarageBand adapter: capability and verification contract
 
-Discover tools from the connected server, not a remembered tool count. This fork currently registers 63; another installation may not include the additions. Use `gb_check_permissions` and `gb_list_projects` to inspect readiness. All project-bound tools require the absolute saved `.band` path in `projectPath`. `gb_open_project` takes `path`.
+Discover tools from the connected server, not a remembered tool count. Another installation may not include the additions. Use `gb_check_permissions` and `gb_list_projects` to inspect readiness. All project-bound tools require the absolute saved `.band` path in `projectPath`. `gb_open_project` takes `path`.
 
 Use `gb_set_automation_view` with `visible: false` before region reads/moves; repeated calls are idempotent and do not bypass or edit curves. `gb_list_regions` exposes literal `startPosition`/`endPosition` bar/beat/division/tick fields. Missing units are null, not zero. Fractional readback does not enable fractional moves: the whole-bar movement preconditions still apply.
 
@@ -39,3 +39,10 @@ The response `drawn_requires_render_verification` is provisional. Keep its evide
 The FIFO and cross-process lock serialize cooperating GUI operations. A human or another automation program can still interfere. Target checks reduce wrong-project risk but are not a GarageBand transaction. After mismatch, timeout, partial write or focus loss, inspect the project before continuing. Do not reset the global lock file or run a second server to bypass ownership. A crash can leave native work alive even though the lock is released.
 
 The server cannot promise arbitrary Audio Unit parameters in physical units, sample-accurate GUI placement, rollback of a partial edit, or unattended operation across every version. Record unavailable steps in the plan; request a bounded manual action only if needed to complete the authorized goal.
+
+## Offline mix and vocal processing
+
+- `gb_mix_audio`: input LUFS/true peak, per-channel peak/RMS/crest/DC and stereo/mono diagnostics; ordered EQ, HP/LP filters, compressor, saturation and de-esser; aligned loudness-matched A/B previews. Consult [schema and units](mix-processing.md). De-esser parameters are normalized; EQ and compressor fields have explicit units.
+- `gb_vocal_process`: reviewed mono vocal pitch analysis, explicit interval shifts and filter-bank vocoder renders. Consult [vocal workflow](vocals.md) and [request schema](vocal-processing.md). No promise of transparent auto-tuning, natural formants or automatic melody decisions.
+- These commands run without opening GarageBand and require the configured Python environment with NumPy plus FFmpeg. They do not require `projectPath`, do not insert plug-ins and do not change `.band` media. Keep source hashes, sample origin, full duration and an unchanged dry copy. Import the accepted candidate through `gb_import_audio` only after preparing a separate empty audio track in the working copy.
+- Native Pitch Correction amount/key limiting, note-blob editing, formant AU automation, sidechain synth-vocoder routing and general plug-in chains are not controlled by this adapter. Test an installed AU's actual input/routing before offering it as a workflow; an AU appearing in the browser does not prove external carrier or MIDI routing.

@@ -32,4 +32,14 @@ export function registerOfflineAudioTools(server: McpServer): void {
     description: "Validate identified assets, project-zero timing, channel matrices and gains from recipe JSON. Render creates new 24-bit WAVs and a receipt; sources and DAW projects remain unchanged. Omit outputDirectory for validation only. Never overwrites existing outputs. Requires Python with NumPy and FFmpeg.",
     inputSchema: { recipePath: z.string(), outputDirectory: z.string().optional() },
   }, ({ recipePath, outputDirectory }) => guarded(async () => ok(JSON.stringify(await runOffline("mix_recipe.py", "--recipe", recipePath, outputDirectory)))));
+  server.registerTool("gb_mix_audio", {
+    title: "Measure, process or compare identified mix audio",
+    description: "Read a strict versioned request for analyze, process or compare. Measures LUFS, true peak, crest and stereo/mono behavior; renders an ordered EQ/filter/compressor/de-esser/saturation chain or loudness-matched A/B WAVs. Omit outputDirectory for analysis or render validation. New outputs only; original audio and GarageBand projects stay unchanged. Requires Python with NumPy and FFmpeg. See docs/mix-processing.md for the request schema and units.",
+    inputSchema: { requestPath: z.string(), outputDirectory: z.string().optional() },
+  }, ({ requestPath, outputDirectory }) => guarded(async () => ok(JSON.stringify(await runOffline("mix_process.py", "--request", requestPath, outputDirectory)))));
+  server.registerTool("gb_vocal_process", {
+    title: "Analyze vocal pitch or render reviewed vocal processing",
+    description: "Read a versioned vocal request for pitch analysis, explicit interval pitch shifts or a true filter-bank vocoder. Omit outputDirectory for validation/analysis as described in docs/vocal-processing.md. Produces new audio and evidence without changing sources or GarageBand. Pitch estimates need musical review; interval shifts are not automatic note correction. Requires Python with NumPy and FFmpeg; available pitch backends are reported.",
+    inputSchema: { requestPath: z.string(), outputDirectory: z.string().optional() },
+  }, ({ requestPath, outputDirectory }) => guarded(async () => ok(JSON.stringify(await runOffline("vocal_process.py", "--request", requestPath, outputDirectory)))));
 }

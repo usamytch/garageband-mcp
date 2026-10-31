@@ -23,7 +23,7 @@ async function fixture() {
   const root = await mkdtemp(resolve("test-build/export-process-"));
   const { job } = await createExportJob(root, { projectPath: join(root, "existing.band"), directory: join(root, "delivery"),
     jobs: [{ filename: "Intro 10", tracks: [{ index: 1, name: "guitar", solo: true }] }] }, "process-test");
-  await writeFile(join(root, "mixer.json"), JSON.stringify({ "1:solo": false }));
+  await writeFile(join(root, "mixer.json"), JSON.stringify({ "1:solo": false, "1:mute": false }));
   const pids: number[] = [];
   return { root, job, pids,
     launch: async (mode: string) => { const pid = await spawnDetached(entry, ["worker", root, job.id, mode], join(root, "test.log")); pids.push(pid); return pid; },
@@ -44,7 +44,7 @@ test("an actual detached export continues after the client is killed", async () 
     await writeFile(join(f.root, "continue"), "go");
     await f.completed();
     await until(async () => !await exists(join(f.root, "fence.json")), "fence cleanup");
-    assert.deepEqual(JSON.parse(await readFile(join(f.root, "mixer.json"), "utf8")), { "1:solo": false });
+    assert.deepEqual(JSON.parse(await readFile(join(f.root, "mixer.json"), "utf8")), { "1:solo": false, "1:mute": false });
     assert.equal(await readFile(join(f.root, "delivery/Intro 10.wav"), "utf8"), "complete-wave");
   } finally { client.kill("SIGKILL"); await f.cleanup(); }
 });

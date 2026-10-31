@@ -1,7 +1,8 @@
 import { copyFile, link, lstat, mkdir, rm, stat } from "node:fs/promises";
 import { constants } from "node:fs";
 import type { AudioInfo, ExportRange } from "./audio-file.js";
-import { loadExportJob, outputDirectory, requestedSettings, saveExportJob, type ExportJob, type ExportSetting } from "./export-job.js";
+import { loadExportJob, mixerRestorationIssue, outputDirectory, requestedSettings, saveExportJob, type ExportJob, type ExportSetting } from "./export-job.js";
+import { trackTogglePlan } from "./track-toggle-plan.js";
 
 export interface ExportDriver {
   prepare(): Promise<void>;
@@ -17,6 +18,10 @@ async function exists(path: string): Promise<boolean> {
   return lstat(path).then(() => true, error => { if (error.code === "ENOENT") return false; throw error; });
 }
 
+function orderedSettings(settings: ExportSetting[], value: "before" | "desired") {
+  return [...settings].sort((a, b) => a.index !== undefined && a.index === b.index ? Number(a[value]) - Number(b[value]) : 0);
+}
+
 /** The caller holds both the job lock and the global GUI lock through recovery. */
 export async function executeExportJob(root: string, id: string, driver: ExportDriver, restoreOnly = false): Promise<ExportJob> {
   const job = await loadExportJob(root, id);
@@ -27,10 +32,17 @@ export async function executeExportJob(root: string, id: string, driver: ExportD
   };
   const restore = async (settings: ExportSetting[]) => {
     if (!await driver.idle()) throw new Error("GarageBand is still busy; settings have not been restored. Inspect and resume this job.");
+    // A v1 Solo write could change a snapshotted Mute before its own write was
+    // attempted. Recover that known value too; never invent a missing snapshot.
+    if (job.version === 1) for (const setting of settings) {
+      if (!setting.attempted || !setting.desired || setting.field === "normalize") continue;
+      const peer = settings.find(other => other.index === setting.index && other.field === (setting.field === "solo" ? "mute" : "solo"));
+      if (peer && !peer.attempted) { peer.attempted = true; peer.restored = false; await persist(); }
+    }
     if (!settings.some(setting => setting.attempted && !setting.restored)) return;
     await prepare();
     const errors: string[] = [];
-    for (const setting of [...settings].reverse()) {
+    for (const setting of orderedSettings([...settings].reverse(), "before")) {
       if (!setting.attempted || setting.restored) continue;
       try {
         if (await driver.read(setting) !== setting.before) await driver.write(setting, setting.before);
@@ -38,12 +50,21 @@ export async function executeExportJob(root: string, id: string, driver: ExportD
         setting.restored = true; await persist();
       } catch (error) { errors.push(String(error)); }
     }
+    // A later coupled write can invalidate an earlier successful readback.
+    for (const setting of settings.filter(setting => setting.attempted)) {
+      try {
+        if (await driver.read(setting) !== setting.before) throw new Error(`Final restore readback failed: ${setting.key}`);
+      } catch (error) { setting.restored = false; errors.push(String(error)); }
+    }
+    await persist();
     if (errors.length) throw new Error(errors.join("; "));
   };
   try {
     if (job.status === "abandoned") return job;
     if (restoreOnly) {
       for (const item of job.items) await restore(item.settings);
+      const issue = mixerRestorationIssue(job);
+      if (issue) throw new Error(issue);
       job.status = "abandoned"; delete job.error; await persist(); return job;
     }
     job.status = "running"; delete job.error; await persist();
@@ -62,21 +83,35 @@ export async function executeExportJob(root: string, id: string, driver: ExportD
       if (item.phase === "pending") {
         if (await outputDirectory(job.request.directory) !== job.request.directory) throw new Error("Output directory changed since planning.");
         if (await exists(item.target) || await exists(item.source) || await exists(item.candidate) || await exists(item.staging)) throw new Error("An export target already exists; no file was overwritten.");
-        const settings = requestedSettings(variant);
+        const settings = requestedSettings(variant, job.version);
         await prepare();
         for (const setting of settings) setting.before = await driver.read(setting);
         item.settings = settings; item.phase = "prepared"; await persist();
       }
       if (item.phase === "prepared") {
         await prepare();
+        trackTogglePlan(variant.tracks);
+        for (const setting of item.settings) {
+          if (setting.desired && setting.field !== "normalize" && !item.settings.some(other => other.index === setting.index && other.field === (setting.field === "solo" ? "mute" : "solo"))) {
+            throw new Error(`Legacy export has no coupled mixer snapshot for ${setting.key}; create a new export job after reviewing the track.`);
+          }
+          if (setting.before && setting.field !== "normalize" && item.settings.some(other => other.index === setting.index && other.field !== setting.field && other.before)) {
+            throw new Error(`Cannot safely restore a snapshot with both Solo and Mute enabled: ${setting.index}`);
+          }
+        }
+        // Validate the whole snapshot before the first write: a native toggle
+        // can legitimately alter its peer, which this transaction also owns.
         for (const setting of item.settings) {
           const current = await driver.read(setting);
           if ((!setting.attempted || setting.restored) && current !== setting.before) throw new Error(`Mixer changed since snapshot: ${setting.key}`);
-          if (setting.before === setting.desired) continue;
-          setting.attempted = true; setting.restored = false; await persist();
-          await driver.write(setting, setting.desired);
+        }
+        for (const setting of item.settings) { setting.attempted = true; setting.restored = false; }
+        await persist();
+        for (const setting of orderedSettings(item.settings, "desired")) {
+          if (await driver.read(setting) !== setting.desired) await driver.write(setting, setting.desired);
           if (await driver.read(setting) !== setting.desired) throw new Error(`Apply readback failed: ${setting.key}`);
         }
+        for (const setting of item.settings) if (await driver.read(setting) !== setting.desired) throw new Error(`Final apply readback failed: ${setting.key}`);
         // Persist ambiguity BEFORE submission. A crash here must never trigger a blind second render.
         item.phase = "rendering"; await persist();
         await driver.render(item.source);
@@ -89,6 +124,8 @@ export async function executeExportJob(root: string, id: string, driver: ExportD
       if (item.phase === "rendered" || item.phase === "restoring") {
         item.phase = "restoring"; await persist();
         await restore(item.settings);
+        const issue = mixerRestorationIssue(job);
+        if (issue) throw new Error(issue);
         item.phase = "finalizing"; await persist();
       }
       if (item.phase === "finalizing") {

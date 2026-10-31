@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { open, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { jobDirectory, loadExportJob } from "./export-job.js";
+import { jobDirectory, loadExportJob, mixerRestorationIssue } from "./export-job.js";
 import { processGroupAlive, readExportFence } from "./export-recovery.js";
 import { acquireGuiLock } from "./gui-queue.js";
 import { writeJournal } from "./journal.js";
@@ -33,7 +33,7 @@ export async function exportJobStatus(root: string, id: string, fencePath?: stri
   catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
   return { id, status: job.status === "running" && !workerAlive ? "interrupted" : job.status, workerAlive, recoveryRequired,
     journalPath: join(folder, "job.json"), error: job.error, workerError,
-    mixerRestored: job.items.every(item => item.settings.every(s => !s.attempted || s.restored)),
+    mixerRestored: !mixerRestorationIssue(job), mixerRestorationWarning: mixerRestorationIssue(job),
     items: job.items.map((item, i) => ({ filename: job.request.jobs[i].filename, phase: item.phase,
       ...(item.phase === "completed" ? { path: item.target, sha256: item.candidateHash, audio: item.audio } : {}) })) };
 }

@@ -1,6 +1,6 @@
 {
-  "reviewedOn": "2026-10-27",
-  "policy": "Profiles are original conditional guidance. Attributions are bounded by accessible source material; no endorsement or universal preset is implied.",
+  "reviewedOn": "2026-11-01",
+  "policy": "Profiles are original conditional guidance informed by primary interviews and research. Attributions are bounded by actual access. Named engineers are selected examples, not a ranking or endorsement. No paid lesson, unheard audio, exact secret chain or universal preset is claimed.",
   "sources": [
     {
       "id": "tla-2017",
@@ -8,8 +8,10 @@
       "title": "Inside the Mix",
       "url": "https://www.waves.com/inside-the-mix-tom-lord-alge",
       "year": "2017",
-      "access": "public interview text",
-      "scope": "Punk/pop-punk source context; source-dependent decisions."
+      "access": "public interview passages returned by search; direct fetch timed out on 2026-11-01",
+      "scope": "Upfront drums, guitar-part differentiation, chorus-specific distortion and checking lyric meaning before vocal repeats.",
+      "checkedOn": "2026-11-01",
+      "limits": "Vendor-hosted interview; no claim of hearing the embedded examples or recreating the full chain."
     },
     {
       "id": "ram-2013",
@@ -18,7 +20,8 @@
       "url": "https://www.soundonsound.com/people/recording-random-access-memories-daft-punk",
       "year": "2013",
       "access": "search-indexed interview excerpts; direct fetch unavailable",
-      "scope": "Specific disco/funk production context, not all funk."
+      "scope": "Specific disco/funk production context, not all funk.",
+      "checkedOn": "2026-10-27"
     },
     {
       "id": "mynett-2009",
@@ -26,8 +29,10 @@
       "title": "Mixing Metal",
       "url": "https://www.soundonsound.com/techniques/mixing-metal",
       "year": "2009",
-      "access": "search-indexed article excerpts; direct fetch unavailable",
-      "scope": "Extreme metal, not a universal metal recipe."
+      "access": "search-indexed engineer-authored article passages; direct fetch returned 403",
+      "scope": "Extreme-metal preparation and phase diagnostics between recordings of the same source.",
+      "checkedOn": "2026-11-01",
+      "limits": "Historical advice, not a universal metal recipe; fixed global high-pass recommendations are not adopted."
     },
     {
       "id": "kirkpatrick-2020",
@@ -36,7 +41,8 @@
       "url": "https://www.soundonsound.com/techniques/inside-track-dua-lipa-dont-start-now",
       "year": "2020",
       "access": "search-indexed interview excerpts; direct fetch unavailable",
-      "scope": "Production interview, not a full mix session breakdown."
+      "scope": "Production interview, not a full mix session breakdown.",
+      "checkedOn": "2026-10-27"
     },
     {
       "id": "wallace-2014",
@@ -44,8 +50,10 @@
       "title": "Inside Track: Linkin Park - The Hunting Party",
       "url": "https://www.soundonsound.com/techniques/inside-track-linkin-parks-hunting-party",
       "year": "2014",
-      "access": "search-indexed interview excerpts; direct fetch unavailable",
-      "scope": "Rock contextual balance and rides, not exact plugin settings."
+      "access": "extensive search-indexed interview passages; direct fetch returned 403",
+      "scope": "Fast full-band balance, section architecture, detailed level rides and bass tone-versus-level distinction.",
+      "checkedOn": "2026-11-01",
+      "limits": "No exact plugin reconstruction or claim of hearing the original multitrack."
     },
     {
       "id": "joshua-rosalia",
@@ -54,7 +62,107 @@
       "url": "https://mixwiththemasters.com/videos/jaycen-joshua-rosalia-yo-x-ti/part/0",
       "year": null,
       "access": "public course overview only; paid lesson not accessed",
-      "scope": "Latin pop/reggaeton topic coverage only."
+      "scope": "Latin pop/reggaeton topic coverage only.",
+      "checkedOn": "2026-10-27"
+    },
+    {
+      "id": "guzauski-ua-2013",
+      "speaker": "Mick Guzauski",
+      "title": "Mick Guzauski On Mixing Daft Punk's Random Access Memories",
+      "url": "https://www.uaudio.com/blogs/ua/artist-interview-mick-guzauski",
+      "year": "2013",
+      "access": "public first-person interview text; direct page read",
+      "scope": "Organic acoustic/electronic blend, source tone, kick-mic roles and compression including vocoder vocals.",
+      "checkedOn": "2026-11-01",
+      "limits": "Vendor interview; no complete session reconstruction or audition of embedded video."
+    },
+    {
+      "id": "sneap-2017",
+      "speaker": "Andy Sneap",
+      "title": "Metal Mixing Tips by Producer/Mixer Andy Sneap",
+      "url": "https://www.waves.com/metal-mixing-tips-andy-sneap",
+      "year": "2017",
+      "access": "public first-person interview text; direct page read",
+      "scope": "Vocal clarity, speed-dependent low end, selective chug control, manual drum cleanup and section ambience.",
+      "checkedOn": "2026-11-01",
+      "limits": "Specific examples are not default frequencies or thresholds for every song."
+    },
+    {
+      "id": "ghenea-2021",
+      "speaker": "Serban Ghenea",
+      "title": "Waves x Grammy 2021: Serban Ghenea Mixing Taylor Swift",
+      "url": "https://www.waves.com/waves-grammys-2021-serban-ghenea-taylor-swift",
+      "year": "2021",
+      "access": "public first-person interview text; direct page read",
+      "scope": "Song-specific emotional focus and explicit rejection of a fixed toolkit for every artist.",
+      "checkedOn": "2026-11-01",
+      "limits": "No detailed secret chain or exact settings are disclosed or inferred."
+    },
+    {
+      "id": "maserati-2018",
+      "speaker": "Tony Maserati",
+      "title": "Talking technique with Tony Maserati - Mixing in the Fast Lane",
+      "url": "https://en.audiofanzine.com/sound-technique/editorial/articles/mixing-in-the-fast-lane.html",
+      "year": "2018",
+      "access": "public first-person interview text; direct page and relevant sections read",
+      "scope": "Selective subtractive EQ, parallel vocal compression for proximity, section- and phrase-dependent ambience.",
+      "checkedOn": "2026-11-01",
+      "limits": "Conditional examples; no universal signal-chain order or hardware equivalence claimed."
+    },
+    {
+      "id": "gudwin-despacito-2017",
+      "speaker": "Josh Gudwin",
+      "title": "Mix Masters: Bieber's Despacito",
+      "url": "https://www.audiotechnology.com/features/mix-masters-biebers-despacito",
+      "year": "2017",
+      "access": "public first-person interview text; direct page and relevant sections read",
+      "scope": "Remix from Jaycen Joshua's finished stems; preserving their sound and integrating comped/tuned vocals and effects.",
+      "checkedOn": "2026-11-01",
+      "limits": "This is not Joshua's raw-track mixing workflow; tuning was delegated and its parameters are not known."
+    },
+    {
+      "id": "gudwin-2021",
+      "speaker": "Josh Gudwin (with producer Tainy and A&R commentary)",
+      "title": "Josh Gudwin on Mixing, Part 1: Juanes, Bad Bunny and Dua Lipa",
+      "url": "https://www.mixonline.com/recording/josh-gudwin-on-mixing-part-1-juanes-bad-bunny-and-dua-lipa",
+      "year": "2021",
+      "access": "public interview text; direct page read",
+      "scope": "Production intent, section collaboration, retaining designed sounds, separate dry/effect delivery where useful.",
+      "checkedOn": "2026-11-01",
+      "limits": "Stereo workflow principles only; this skill does not implement the article's Atmos discussion."
+    },
+    {
+      "id": "marroquin-2021",
+      "speaker": "Manny Marroquin",
+      "title": "Waves x Grammys 2021: Manny Marroquin Mixing Post Malone",
+      "url": "https://www.waves.com/waves-grammys-2021-manny-marroquin-post-malone",
+      "year": "2021",
+      "access": "public first-person interview text; direct page read",
+      "scope": "Lyric-led decisions, low-end aesthetic on Gravity, selective bass/guitar distortion for section emphasis.",
+      "checkedOn": "2026-11-01",
+      "limits": "Vendor-hosted examples; no plugin endorsement or required purchase."
+    },
+    {
+      "id": "joshua-2010",
+      "speaker": "Jaycen Joshua",
+      "title": "Secrets Of The Mix Engineers: Jaycen Joshua — Justin Bieber, Baby",
+      "url": "https://www.soundonsound.com/techniques/secrets-mix-engineers-jaycen-joshua",
+      "year": "2010",
+      "access": "extensive search-indexed interview passages; direct fetch returned 403",
+      "scope": "Dominant-element-first mix order, preparation, musical transitions and respect for differing artist visions.",
+      "checkedOn": "2026-11-01",
+      "limits": "Pop/R&B case study; not evidence of exact Rosalía or Despacito original-mix settings."
+    },
+    {
+      "id": "himmp-2025",
+      "speaker": "Jan-Peter Herbst and Eric Smialek (research authors)",
+      "title": "Mixed Results: An Introduction to Analyzing Music Production through Eight Commissioned Metal Mixes",
+      "url": "https://storage.gmth.de/zgmth/pdf/1222",
+      "year": "2025",
+      "access": "public primary-research PDF text; methodology and aesthetic framework read",
+      "scope": "Same-song comparative study involving Bogren, Exeter, Getgood, Middleton, Nordström, Odeholm, Otero and Scheps; multiple viable production aesthetics.",
+      "checkedOn": "2026-11-01",
+      "limits": "One commissioned song and a limited cohort, not all metal; the complete audio/video corpus was not auditioned."
     }
   ]
 }

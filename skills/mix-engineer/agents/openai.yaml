@@ -1,6 +1,6 @@
 interface:
   display_name: "Mix Engineer"
-  short_description: "Reference-led mixes with six genre profiles"
+  short_description: "Six mix styles, vocal tuning and vocoder processing"
   default_prompt: "Use $mix-engineer to mix a copy of my session, preserve track exclusions, and compare verified WAV exports."
 policy:
   allow_implicit_invocation: true

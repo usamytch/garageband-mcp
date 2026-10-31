@@ -24,7 +24,11 @@ Change EQ for an identified masking, resonance or tonal problem; compression for
 
 Never silently substitute a different operation when the desired capability is missing. For a compressor threshold in dB, confirm the actual plugin/parameter and exposed unit. If only a normalized macro is available, describe that limitation and either use the macro intentionally or leave a bounded manual step.
 
-## 3. Vocal phrase automation
+## 3. Vocal pitch, tone and phrase automation
+
+For tuning or character design, load [vocals](vocals.md). Establish the intended melody and protect glides/bends before generating a reviewed pitch-shift map. Analyze clean monophonic excerpts; low confidence, double tracking, spill and screaming require separate decisions. Prefer an available formant-preserving backend when natural tone is the goal, but still inspect rendered consonants and transitions. A vocoder requires explicit carrier notes from the harmony and an independent wet layer when blending with the lead. Read [vocal processing](vocal-processing.md) for executable requests.
+
+For offline EQ/dynamics or A/B, read [mix processing](mix-processing.md). Preserve the recorded wet/dry status and project origin; avoid applying a printed effect twice. Use measurements to investigate a problem, not as a target that replaces the musical brief.
 
 Render an authorized vocal solo and restore previous states afterward. Mark phrase candidates, sustained notes, breaths and intentional dynamics. Amplitude segmentation cannot determine words or phrasing reliably; inspect or listen before accepting its boundaries. Avoid automatic uniform loudness across every phrase.
 

@@ -11,11 +11,12 @@ import { withTemporarySettings, type TemporarySetting } from "../settings-transa
 import { dataDirectory } from "../runtime-paths.js";
 import { GBError, guarded, ok } from "../errors.js";
 import { writeJournal, recordFailure } from "../journal.js";
+import { trackTogglePlan } from "../track-toggle-plan.js";
 
 export function registerBatchExportTools(server: McpServer): void {
   server.registerTool("gb_export_batch", {
     title: "Export WAV variants with restored mixer state",
-    description: "Export variants in one guarded operation. Only requested solo/mute fields are changed and restored, including on failure. Optional project ranges require independently verified exportOriginSeconds; full-song bounces may not begin at project zero. Saves a recovery journal, never saves the project.",
+    description: "Export variants in one guarded operation. Requested solo/mute states and their coupled controls are snapshotted and restored, including on failure. Optional project ranges require independently verified exportOriginSeconds; full-song bounces may not begin at project zero. Saves a recovery journal, never saves the project.",
     inputSchema: {
       directory: z.string(),
       jobs: z.array(z.object({
@@ -26,6 +27,7 @@ export function registerBatchExportTools(server: McpServer): void {
     },
   }, async ({ directory, jobs }) => guarded(async () => {
     if (new Set(jobs.map(job => job.filename)).size !== jobs.length) throw new GBError("INVALID_INPUT", "Batch filenames must be unique.");
+    const plans = jobs.map(job => trackTogglePlan(job.tracks));
     for (const job of jobs) if (job.range) rangeFilter(job.range, Number.MAX_VALUE);
     const targets = await Promise.all(jobs.map(job => prepareExport(directory, job.filename, "wav")));
     const folder = join(dataDirectory(), "exports", randomUUID());
@@ -37,19 +39,16 @@ export function registerBatchExportTools(server: McpServer): void {
     try {
       for (const [i, job] of jobs.entries()) {
         const settings: TemporarySetting[] = [];
-        for (const track of job.tracks) {
-          for (const field of ["solo", "mute"] as const) {
-            const value = track[field];
-            if (value === undefined) continue;
-            const read = async () => {
-              const current = (await readTracks()).find(t => t.index === track.index);
-              if (!current || current.name !== track.name) throw new GBError("VERIFICATION_FAILED", "Batch track identity changed.");
-              return current[field];
-            };
-            settings.push({ key: `${track.index}:${field}`, value, read,
-              write: async value => { await read(); return setTrackToggle(track.index, field === "solo" ? "Solo" : "Mute", value); },
-            });
-          }
+        for (const track of plans[i]) {
+          const { field, value } = track;
+          const read = async () => {
+            const current = (await readTracks()).find(t => t.index === track.index);
+            if (!current || current.name !== track.name) throw new GBError("VERIFICATION_FAILED", "Batch track identity changed.");
+            return current[field];
+          };
+          settings.push({ key: `${track.index}:${field}`, value, read,
+            write: async value => { await read(); return setTrackToggle(track.index, field === "solo" ? "Solo" : "Mute", value); },
+          });
         }
         await record({ job: job.filename, target: targets[i], range: job.range });
         const result = await withTemporarySettings(settings, async () => {

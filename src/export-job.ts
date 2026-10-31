@@ -7,6 +7,7 @@ import { rangeFilter } from "./audio-file.js";
 import { writeJournal } from "./journal.js";
 import { GBError } from "./errors.js";
 import { acquireGuiLock } from "./gui-queue.js";
+import { trackTogglePlan } from "./track-toggle-plan.js";
 
 export const exportVariantSchema = z.object({
   filename: z.string().min(1), normalize: z.boolean().optional(),
@@ -29,16 +30,20 @@ export interface ExportItem {
   sourceHash?: string; candidateHash?: string; audio?: AudioInfo;
 }
 export interface ExportJob {
-  version: 1; id: string; requestHash: string; request: ExportRequest;
+  version: 1 | 2; id: string; requestHash: string; request: ExportRequest;
   status: "queued" | "running" | "needs_review" | "completed" | "abandoned";
   createdAt: string; updatedAt: string; items: ExportItem[]; error?: string;
 }
 
-export function requestedSettings(variant: ExportRequest["jobs"][number]): ExportSetting[] {
+export function requestedSettings(variant: ExportRequest["jobs"][number], version: 1 | 2 = 2): ExportSetting[] {
   const settings: ExportSetting[] = [];
-  for (const track of variant.tracks) for (const field of ["solo", "mute"] as const) {
-    const desired = track[field];
-    if (desired !== undefined) settings.push({ key: `${track.index}:${field}`, index: track.index, name: track.name, field, desired, before: false, attempted: false, restored: false });
+  if (version === 1) {
+    for (const track of variant.tracks) for (const field of ["solo", "mute"] as const) {
+      const desired = track[field];
+      if (desired !== undefined) settings.push({ key: `${track.index}:${field}`, index: track.index, name: track.name, field, desired, before: false, attempted: false, restored: false });
+    }
+  } else {
+    for (const { value, ...setting } of trackTogglePlan(variant.tracks)) settings.push({ ...setting, desired: value, before: false, attempted: false, restored: false });
   }
   if (variant.normalize !== undefined) settings.push({ key: "Auto Normalize", field: "normalize", desired: variant.normalize, before: false, attempted: false, restored: false });
   return settings;
@@ -55,7 +60,7 @@ const itemSchema = z.object({
   audio: z.object({ duration: z.number().finite().positive(), sampleRate: z.number().int().positive(), channels: z.number().int().positive(), codec: z.string(), bytes: z.number().int().positive() }).strict().optional(),
 }).strict();
 const jobSchema = z.object({
-  version: z.literal(1), id: z.string(), requestHash: z.string(), request: exportRequestSchema,
+  version: z.union([z.literal(1), z.literal(2)]), id: z.string(), requestHash: z.string(), request: exportRequestSchema,
   status: z.enum(["queued", "running", "needs_review", "completed", "abandoned"]),
   createdAt: z.string(), updatedAt: z.string(), items: z.array(itemSchema), error: z.string().optional(),
 }).strict();
@@ -113,12 +118,12 @@ export async function loadExportJob(root: string, id: string): Promise<ExportJob
   if (bytes.length > 4 * 1024 * 1024) throw new Error("Export journal exceeds limit");
   const job = jobSchema.parse(JSON.parse(bytes.toString()));
   const request = validateRequest(job.request);
-  if (job.version !== 1 || job.id !== id || job.requestHash !== hashText(stableJson(request)) || job.items.length !== request.jobs.length) throw new Error("Invalid export journal identity");
+  if (job.id !== id || job.requestHash !== hashText(stableJson(request)) || job.items.length !== request.jobs.length) throw new Error("Invalid export journal identity");
   for (const [i, item] of job.items.entries()) {
     const folder = jobDirectory(root, id);
     if (item.source !== join(folder, `source-${i}.wav`) || item.candidate !== join(folder, `candidate-${i}.wav`) ||
         item.target !== join(request.directory, request.jobs[i].filename + ".wav") || item.staging !== join(request.directory, `.gb-${id}-${i}.wav`)) throw new Error("Invalid export journal paths");
-    const expected = item.phase === "pending" ? [] : requestedSettings(request.jobs[i]);
+    const expected = item.phase === "pending" ? [] : requestedSettings(request.jobs[i], job.version);
     if (item.settings.length !== expected.length || item.settings.some((setting, j) => {
       const wanted = expected[j];
       return setting.key !== wanted.key || setting.index !== wanted.index || setting.name !== wanted.name ||
@@ -132,10 +137,23 @@ export async function loadExportJob(root: string, id: string): Promise<ExportJob
   return job;
 }
 
+/** Old journals may not have recorded the peer changed by a Solo/Mute click. */
+export function mixerRestorationIssue(job: ExportJob): string | undefined {
+  for (const item of job.items) for (const setting of item.settings) {
+    if (!setting.attempted || !setting.desired || setting.field === "normalize") continue;
+    const peer = item.settings.find(other => other.index === setting.index && other.field === (setting.field === "solo" ? "mute" : "solo"));
+    if (!peer) return `Original coupled mixer state was not recorded for ${setting.key}; inspect the track before reporting restoration.`;
+    if (job.version === 1 && !peer.restored) return `Coupled mixer restoration was not verified for ${peer.key}.`;
+  }
+  if (job.items.some(item => item.settings.some(setting => setting.attempted && !setting.restored))) return "Mixer restoration is incomplete.";
+  return undefined;
+}
+
 export async function createExportJob(root: string, value: unknown, key: string): Promise<{ job: ExportJob; created: boolean }> {
   await outputDirectory(root);
   if (!/^[A-Za-z0-9_.-]{1,128}$/.test(key)) throw new GBError("INVALID_INPUT", "Use a 1–128 character idempotency key containing letters, digits, dots, underscores or hyphens.");
   const request = validateRequest(value);
+  for (const variant of request.jobs) trackTogglePlan(variant.tracks);
   request.directory = await outputDirectory(request.directory);
   const id = hashText(request.projectPath + "\n" + key);
   const folder = jobDirectory(root, id);
@@ -150,7 +168,7 @@ export async function createExportJob(root: string, value: unknown, key: string)
       if (job.requestHash !== requestHash) throw new GBError("INVALID_INPUT", "This idempotency key already belongs to a different export plan.");
       return { job, created: false };
     }
-    const job: ExportJob = { version: 1, id, requestHash, request, status: "queued", createdAt: new Date().toISOString(), updatedAt: "",
+    const job: ExportJob = { version: 2, id, requestHash, request, status: "queued", createdAt: new Date().toISOString(), updatedAt: "",
       items: request.jobs.map((variant, i) => ({ phase: "pending", settings: [], source: join(folder, `source-${i}.wav`),
         candidate: join(folder, `candidate-${i}.wav`), target: join(request.directory, variant.filename + ".wav"), staging: join(request.directory, `.gb-${id}-${i}.wav`) })) };
     await saveExportJob(root, job);

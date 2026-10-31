@@ -6,7 +6,7 @@ import { canonicalProjectPath, verifyProject } from "./project-guard.js";
 import { operationContext } from "./operation-context.js";
 import { checkExportRecovery } from "./export-recovery.js";
 
-const INDEPENDENT = new Set(["gb_import_midi", "gb_imported_events", "gb_search_freesound", "gb_download_sample", "gb_all_notes_off", "gb_export_start", "gb_export_status", "gb_export_resume", "gb_check_audio_joins", "gb_mix_recipe"]);
+const INDEPENDENT = new Set(["gb_import_midi", "gb_imported_events", "gb_search_freesound", "gb_download_sample", "gb_all_notes_off", "gb_export_start", "gb_export_status", "gb_export_resume", "gb_check_audio_joins", "gb_mix_recipe", "gb_mix_audio", "gb_vocal_process"]);
 const DISCOVERY = new Set(["gb_check_permissions", "gb_ui_state", "gb_list_projects", "gb_screenshot", "gb_launch", "gb_new_project", "gb_open_project"]);
 const projectPath = z.string().describe("Absolute path to the saved .band project. Checked after waiting in the GUI queue and before every native script. Use gb_list_projects to discover it.");
 type Config = Omit<Parameters<McpServer["registerTool"]>[1], "inputSchema"> & { inputSchema?: ZodRawShape };

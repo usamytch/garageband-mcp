@@ -28,6 +28,7 @@ export function nativeExportDriver(): ExportDriver {
       return track[setting.field];
     },
     write: async (setting, value) => {
+      await ensureReady({ needsProject: true });
       if (setting.field === "normalize") { await exportNormalization(value); return; }
       const track = (await readTracks()).find(t => t.index === setting.index);
       if (!track || track.name !== setting.name) throw new Error(`Export track identity changed: ${setting.key}`);

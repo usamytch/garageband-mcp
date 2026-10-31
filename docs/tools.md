@@ -74,3 +74,5 @@ Project-bound tools require an absolute `projectPath` to an existing saved `.ban
 | `gb_export_resume` | Resume or restore an interrupted export | — |
 | `gb_check_audio_joins` | Review audio joins without modifying sources | — |
 | `gb_mix_recipe` | Validate or render a reproducible stereo mix recipe | — |
+| `gb_mix_audio` | Measure, process or compare identified mix audio | — |
+| `gb_vocal_process` | Analyze vocal pitch or render reviewed vocal processing | — |

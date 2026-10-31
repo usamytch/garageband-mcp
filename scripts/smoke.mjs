@@ -11,11 +11,11 @@ const transport = new StdioClientTransport({ command: process.execPath,
 const unbound = new Set(["gb_import_midi", "gb_imported_events", "gb_search_freesound", "gb_download_sample",
   "gb_all_notes_off", "gb_check_permissions", "gb_ui_state", "gb_list_projects", "gb_screenshot",
   "gb_launch", "gb_new_project", "gb_open_project", "gb_export_status", "gb_export_resume",
-  "gb_check_audio_joins", "gb_mix_recipe"]);
+  "gb_check_audio_joins", "gb_mix_recipe", "gb_mix_audio", "gb_vocal_process"]);
 try {
   await client.connect(transport);
   const { tools } = await client.listTools();
-  assert.equal(tools.length, 68);
+  assert.equal(tools.length, 70);
   for (const tool of tools) {
     assert.equal(Boolean(tool.inputSchema.required?.includes("projectPath")), !unbound.has(tool.name), tool.name);
   }
@@ -33,7 +33,7 @@ try {
   const path = new URL("../docs/tools.md", import.meta.url);
   if (process.argv.includes("--write-catalog")) await writeFile(path, catalog);
   else assert.equal(await readFile(path, "utf8"), catalog, "Refresh docs/tools.md after changing tool registrations.");
-  console.log("PASS: stdio handshake, 68 tools, 52 explicit project targets, missing-target rejection, tool catalog.");
+  console.log("PASS: stdio handshake, 70 tools, 52 explicit project targets, missing-target rejection, tool catalog.");
 } finally {
   await client.close();
 }

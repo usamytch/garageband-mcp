@@ -38,6 +38,8 @@ sequenceDiagram
 | Screenshot inspection | `screencapture`, AppKit bitmap access | Experimental detection of the visible automation line |
 | Music | `midi.ts`, `scheduler.ts`, `music.ts`, `smf.ts` | Virtual CoreMIDI output via `easymidi` and its native MIDI dependency; notes, timing, composition and MIDI files |
 | Rendering | `tools/export.ts`, `export-file.ts`, `export-settings.ts` | Drive GarageBand's export UI, wait for the output, preserve normalization preferences |
+| Durable export | `export-job.ts`, `export-runner.ts`, `export-service.ts`, `export-launch.ts` | Persist intent and settings, run a detached worker, recover verified files, publish without replacement |
+| Offline audio | `tools/offline-audio.ts`, `scripts/audio_edit` | Inspect identified WAVs and render explicit stereo recipes outside project packages |
 
 The project itself is TypeScript plus embedded AppleScript/JXA and a small Python lock helper. It does not compile its own C++ GarageBand integration. The native MIDI dependency supplies the compiled bridge to CoreMIDI. GarageBand still renders the instruments, effects and mix.
 
@@ -45,11 +47,12 @@ This is **GUI automation**, not an undocumented GarageBand DSP API or a `.band` 
 
 ## Guarantees and boundaries
 
-- All GUI tool handlers enter the queue. Most require `projectPath`; discovery tools do not. Open checks the requested path afterward; close checks before closing.
+- Ordinary GUI tool handlers enter the queue. Most require `projectPath`; discovery tools do not. Open checks the requested path afterward; close checks before closing. Durable export starts an independent worker which holds the same shared lock and project checks throughout its work.
 - The target check runs after waiting, before native scripts, and after successful project-bound work. Native AX helpers also check before actions. A user can still switch windows between a check and an event; this is not an atomic transaction inside GarageBand.
-- Five independent operations bypass the GUI queue: MIDI-file parsing/import-cache access, sample search/download, and emergency all-notes-off. They do not perform an ordinary GarageBand GUI edit.
+- Independent operations bypass the GUI queue: MIDI-file parsing/import-cache access, sample search/download, emergency all-notes-off, offline audio and export job start/status/resume. Export GUI work runs only inside the worker's lock.
 - FIFO order applies inside one server. The shared lock provides mutual exclusion, not global FIFO fairness. Manual mouse/keyboard activity and unrelated automation do not honor it.
 - The kernel releases the helper's lock on exit. This is not rollback and does not guarantee a surviving `osascript` child stopped. After a crash or timeout, inspect native activity and the project before retrying.
+- A durable-export recovery fence survives worker death. Cooperating GUI tools refuse edits until that job is completed or restored. Recovery checks the previous process group before reading the GUI; an orphan child blocks it. Journal validation binds settings and output paths to the recorded request. This does not provide a general GarageBand Undo transaction or power-loss durability; see [audio workflows](audio-workflows.md).
 - Cancellation while queued avoids starting an edit. Cancellation during work holds ownership until the action settles. Partial edits are reported; there is no general undo transaction.
 - Automation cannot enumerate all points through AX. An apparently empty visible lane does not prove the entire project has no hidden points. Use a known fresh copy and validate the rendered result.
 

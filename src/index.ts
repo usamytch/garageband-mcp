@@ -18,6 +18,8 @@ import { installGuiGuard } from "./guarded-server.js";
 import { registerAutomationTools } from "./tools/automation.js";
 import { registerBatchExportTools } from "./tools/export-batch.js";
 import { registerAudioImportTools } from "./tools/audio-import.js";
+import { registerExportJobTools } from "./tools/export-jobs.js";
+import { registerOfflineAudioTools } from "./tools/offline-audio.js";
 
 const server = new McpServer({
   name: "garageband-mcp",
@@ -40,6 +42,8 @@ registerImportTools(server);
 registerExportTools(server);
 registerBatchExportTools(server);
 registerAudioImportTools(server);
+registerExportJobTools(server);
+registerOfflineAudioTools(server);
 
 function shutdown(): void {
   cancelActive();

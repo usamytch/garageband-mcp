@@ -1,7 +1,7 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: ["src/index.ts", "src/music.ts", "src/smf.ts"],
+  entry: ["src/index.ts", "src/music.ts", "src/smf.ts", "src/export-worker.ts"],
   format: ["esm"],
   target: "node18",
   platform: "node",

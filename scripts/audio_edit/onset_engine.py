@@ -21,7 +21,7 @@ def decode(path):
     return np.frombuffer(data, dtype='<f4').reshape(-1, channels).astype(float)
 
 
-def write_wav(path,x):
+def write_wav(path,x,*,sample_rate=SR):
     path=Path(path)
     x=np.asarray(x,dtype=float)
     if x.ndim not in (1,2) or not x.size or not np.all(np.isfinite(x)):
@@ -30,13 +30,14 @@ def write_wav(path,x):
     pcm=np.rint(x.reshape(-1)*2**23).astype(np.int32)
     if np.any(pcm>=2**23):raise ValueError('Audio exceeds the positive 24-bit PCM range')
     channels=1 if x.ndim==1 else x.shape[1]
+    if isinstance(sample_rate,bool) or sample_rate not in (44100,48000,88200,96000):raise ValueError('Unsupported sample rate')
     packed=((pcm[:,None] >> np.array([0,8,16])) & 255).astype(np.uint8).tobytes()
     # Publish only a complete WAV; hard-link creation cannot overwrite a source.
     with tempfile.NamedTemporaryFile(prefix='audio-write-',suffix='.wav',dir=path.parent,delete=False) as temporary:
         temporary_path=Path(temporary.name)
     try:
         with wave.open(str(temporary_path),'wb') as output:
-            output.setparams((channels,3,SR,0,'NONE','not compressed'))
+            output.setparams((channels,3,sample_rate,0,'NONE','not compressed'))
             output.writeframes(packed)
         os.link(temporary_path,path)
     finally:

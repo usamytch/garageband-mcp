@@ -7,9 +7,9 @@
 
 Fork of [visualfart/garageband-mcp](https://github.com/visualfart/garageband-mcp). It keeps the original MIDI composition tools and adds verified mixer control, guarded GUI operations, region moves, and experimental volume automation. Upstream history and MIT license are preserved.
 
-[Русский](docs/README.ru.md) · [Architecture](docs/architecture.md) · [Mix workflow](docs/mixing-workflow.md) · [61 tools](docs/tools.md) · [Testing](docs/testing.md)
+[Русский](docs/README.ru.md) · [Architecture](docs/architecture.md) · [Mix workflow](docs/mixing-workflow.md) · [68 tools](docs/tools.md) · [Testing](docs/testing.md)
 
-Local editing helpers: [onset analysis and WAV extraction](docs/onset-editing.md), including the verified workaround for the GarageBand timeline-zoom crash. These are optional offline scripts and guarded GUI examples, not additional MCP tools.
+Local editing helpers: [onset analysis and WAV extraction](docs/onset-editing.md), including the verified workaround for the GarageBand timeline-zoom crash. [Audio workflows](docs/audio-workflows.md) describe the MCP tools for join review, reproducible mix recipes and resumable exports.
 
 ```mermaid
 flowchart LR
@@ -32,12 +32,14 @@ flowchart LR
 | Volume automation | **Experimental:** modest phrase rides on an empty visible lane in a stopped 4/4 project copy; requires rendered verification |
 | Composition | Original virtual MIDI, chords, scales, sequences, recording, imports, loops and export tools |
 | Mixing knowledge | One installable skill with punk, funk, metal, pop, rock and Latin profiles |
+| Offline audio | Per-channel join review with protected-phrase mappings; identified stereo mix recipes and render receipts |
+| Durable export | Detached worker, persisted progress, idempotent start, checked recovery and mixer restoration |
 
 **Not implemented:** fractional-bar region moves, a general automation-point editor, arbitrary Audio Unit parameters in Hz/ms/dB, or reliable unattended operation on any macOS/GarageBand version. Normalized Smart Control values are not physical units. The GUI adapter currently expects English GarageBand labels and an unlocked desktop.
 
 ## Build and connect
 
-Requirements: macOS, GarageBand with first-run setup completed, Node.js 22 or newer recommended, Python 3 on `PATH`, and Xcode Command Line Tools for the native MIDI dependency. No Python packages are required by the server. Audio verification scripts additionally use FFmpeg/ffprobe.
+Requirements: macOS, GarageBand with first-run setup completed, Node.js 22 or newer recommended, Python 3 on `PATH`, and Xcode Command Line Tools for the native MIDI dependency. Export validation uses FFmpeg/ffprobe. The optional join-review and mix-recipe tools also require NumPy from `scripts/audio_edit/requirements.txt`; set `GARAGEBAND_MCP_PYTHON` to that environment's Python interpreter. Ordinary GUI tools use only the Python standard library.
 
 ```sh
 git clone https://github.com/usamytch/garageband-mcp.git

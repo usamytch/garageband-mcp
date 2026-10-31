@@ -1,16 +1,11 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-import { readFile, stat } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { ok, image, guarded, GBError } from "../errors.js";
+import { stat } from "node:fs/promises";
+import { ok, image, guarded } from "../errors.js";
 import * as gb from "../applescript.js";
 import * as ui from "../ui.js";
 import { runAppleScript } from "../osa.js";
-
-const exec = promisify(execFile);
+import { captureGarageBandWindow } from "../window-capture.js";
 
 export function registerInspectTools(server: McpServer): void {
   server.registerTool(
@@ -37,7 +32,7 @@ export function registerInspectTools(server: McpServer): void {
         lines.push(appExists ? "✓ GarageBand: installed" : "✗ GarageBand: NOT FOUND in /Applications");
         lines.push((await gb.isRunning()) ? "✓ GarageBand: running" : "· GarageBand: not running (use gb_launch)");
         lines.push(
-          "· Screenshots additionally need Screen Recording permission for the host app (System Settings ▸ Privacy & Security ▸ Screen Recording) — without it gb_screenshot captures only the wallpaper.",
+          "· Window capture additionally needs Screen Recording permission for the host app (System Settings ▸ Privacy & Security ▸ Screen Recording). Unverifiable captures are rejected.",
         );
         return ok(lines.join("\n"));
       }),
@@ -92,27 +87,11 @@ export function registerInspectTools(server: McpServer): void {
     async ({ savePath }) =>
       guarded(async () => {
         await ui.ensureReady();
-        const b = await ui.frontWindowBounds();
-        const raw = join(tmpdir(), `gb-mcp-shot-${Date.now()}.png`);
-        await exec("screencapture", ["-x", "-R", `${b.x},${b.y},${b.w},${b.h}`, raw]);
-        if (savePath) {
-          await exec("cp", [raw, savePath]);
-        }
-        // downscale so the payload stays small enough to return inline
-        await exec("sips", ["-Z", "1200", raw]);
-        const data = await readFile(raw);
-        await exec("rm", ["-f", raw]);
-        if (data.length < 100) {
-          throw new GBError(
-            "OSASCRIPT_ERROR",
-            "Screenshot came back empty.",
-            "Grant Screen Recording permission to the host app in System Settings ▸ Privacy & Security ▸ Screen Recording.",
-          );
-        }
+        const shot = await captureGarageBandWindow(savePath);
         return image(
-          data.toString("base64"),
+          shot.data.toString("base64"),
           "image/png",
-          `Window "${b.name}" (${b.w}×${b.h})${savePath ? `, full-res saved to ${savePath}` : ""}`,
+          `GarageBand-owned window "${shot.title}" (ID ${shot.windowId})${savePath ? `, full-res saved to ${savePath}` : ""}`,
         );
       }),
   );

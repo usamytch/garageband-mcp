@@ -1,6 +1,7 @@
 import { lstat, mkdir, stat } from "node:fs/promises";
 import { basename, isAbsolute, join } from "node:path";
 import { GBError } from "./errors.js";
+import { validateAudioFile, type AudioInfo } from "./audio-file.js";
 
 export const FORMAT_EXT = { aac: ".m4a", mp3: ".mp3", aiff: ".aif", wav: ".wav" };
 
@@ -27,17 +28,21 @@ export async function fileSize(path: string): Promise<number | null> {
   }
 }
 
-/** The caller must first reject existing targets; size stability alone is not freshness. */
+/** A stable size is only a precondition. UI completion and decoding are mandatory. */
 export async function waitForFile(
   path: string,
   timeoutMs: number,
-  io = { size: fileSize, now: Date.now, wait: (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)) },
-): Promise<number | null> {
+  complete: () => Promise<boolean>,
+  io = { size: fileSize, now: Date.now, wait: (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)), validate: validateAudioFile },
+): Promise<AudioInfo | null> {
   const deadline = io.now() + timeoutMs;
   let last: number | null = null;
   while (io.now() < deadline) {
     const size = await io.size(path);
-    if (size !== null && size > 0 && size === last) return size;
+    if (size !== null && size > 0 && size === last && await complete()) {
+      const audio = await io.validate(path);
+      if (audio.bytes === await io.size(path) && await complete()) return audio;
+    }
     last = size;
     await io.wait(Math.min(1500, Math.max(0, deadline - io.now())));
   }

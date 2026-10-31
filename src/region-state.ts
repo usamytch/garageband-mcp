@@ -13,6 +13,15 @@ export const REGION_SCRIPT = `${TRACK_SCRIPT}
   function regionHits(lane) {
     return scan(lane, el => scalar(el, 'AXRole') === 'AXLayoutItem' && /^Region starts at/.test(scalar(el, 'AXHelp') || ''));
   }
+  function regionTracks() {
+    const allLanes = lanes();
+    return headers().map(header => {
+      const lane = one(allLanes.filter(hit => hit.index === header.index), 'track lane ' + header.index);
+      return { index: header.index, name: scalar(control(header, 'name').element, 'AXDescription'),
+        audio: null,
+        regions: regionHits(lane).map(hit => ({ name: scalar(hit.element, 'AXDescription'), help: scalar(hit.element, 'AXHelp'), selected: scalar(hit.element, 'AXSelected') === true })) };
+    });
+  }
   function stopped() {
     const controls = scan(group('Control Bar'), el => scalar(el, 'AXRole') === 'AXCheckBox' && ['Play', 'Record'].indexOf(scalar(el, 'AXTitle')) >= 0);
     if (controls.length !== 2 || controls.some(hit => Number(scalar(hit.element, 'AXValue')) !== 0)) fail('INVALID_INPUT', 'Stop playback and recording before moving regions.');
@@ -22,12 +31,7 @@ export const REGION_SCRIPT = `${TRACK_SCRIPT}
 export async function readRegions(): Promise<{ project: string; projectPath: string; tracks: RegionTrack[] }> {
   const raw = await runAX<{ project: string; projectPath: string; tracks: Array<Omit<RegionTrack, "regions"> & { regions: Array<Pick<RegionState, "name" | "help" | "selected">> }> }>(`${REGION_SCRIPT}
     noSheet();
-    return { project: scalar(window.element, 'AXTitle'), projectPath: Application('GarageBand').documents[0].path(), tracks: headers().map(header => {
-      const lane = one(lanes().filter(hit => hit.index === header.index), 'track lane ' + header.index);
-      return { index: header.index, name: state(header).name,
-        audio: null,
-        regions: regionHits(lane).map(hit => ({ name: scalar(hit.element, 'AXDescription'), help: scalar(hit.element, 'AXHelp'), selected: scalar(hit.element, 'AXSelected') === true })) };
-    }) };
+    return { project: scalar(window.element, 'AXTitle'), projectPath: Application('GarageBand').documents[0].path(), tracks: regionTracks() };
   `);
   return { ...raw, tracks: raw.tracks.map((track) => {
     const regions = track.regions.map((item, index) => {

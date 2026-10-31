@@ -24,8 +24,10 @@
     "build": "tsup",
     "typecheck": "tsc --noEmit",
     "test": "tsc -p tsconfig.test.json && node --test test-build/test/*.test.js",
+    "test:audio": "python3 -m unittest discover -s scripts/audio_edit -p 'test_*.py'",
     "smoke": "node scripts/smoke.mjs",
     "check": "npm test && npm run typecheck && npm run build && npm run smoke",
+    "check:all": "npm run check && npm run test:audio",
     "dev": "tsup --watch",
     "prepublishOnly": "npm run build"
   },

@@ -25,7 +25,27 @@ The destination must not exist. The manifest records the input SHA-256, attack a
 
 This is an anchor-guided pick detector, not a general phrase recognizer. It selects a candidate near each anchor and does not establish that the candidate is musically correct. Review the boundaries and listen before moving audio. The offset alone does not describe Flex, reverse, loops, tempo maps or take folders. Those need a separate mapping implementation.
 
-`onset_engine.py` also contains the session's mono pause-cleaning, attack-preserving sustain extension and spectral/envelope comparison primitives. They are opt-in building blocks, not automatically applied by the extraction command. Noise thresholds and tail policies need review for the recording in use.
+`onset_engine.py` also contains the session's mono pause-cleaning and spectral/envelope comparison primitives. They are opt-in building blocks, not automatically applied by the extraction command. Noise thresholds and tail policies need review for the recording in use.
+
+### Continuity and stretch safety
+
+Do not split a slide, bend, ringing chord or legato phrase at every grid anchor. Preserve the phrase and review its timing as a unit. The detector now requires an energy rise; the steady-tone and stationary-noise regression cases are rejected instead of manufacturing one event per anchor. It still cannot certify that a candidate is a picked note.
+
+`stretch_tail` extends existing digital silence without processing the source. Active sustain is rejected by default. `allow_time_stretch=True` is only for a separately reviewed steady sustain, never automatic permission inferred from an RMS threshold. The first 50 ms remain verbatim. A non-finite or short FFmpeg result fails the edit; it is never padded with zeroes inside the note. Trimming is a separate operation. This stricter contract intentionally stops legacy recipes that assumed every requested duration could be produced.
+
+The previous implementation trusted the requested tempo ratio, then padded a short `atempo` result to its expected length. This introduced an abrupt interior transition into silence even when the eventual segment boundary was faded to zero. Length, first-25-ms identity, peak level and boundary samples all missed that failure. Inspect the entire processed interval, protected articulations, joins and fades. Numerical checks are necessary but do not replace matched-level listening.
+
+`write_wav` validates finite, nonempty audio and PCM range, writes a complete 24-bit WAV in the destination directory, then publishes it without overwriting an existing path. Use a new candidate filename; replacement of an accepted deliverable is an explicit separate operation after verification. No audio-processing failure should silently replace the user's source.
+
+### Reviewed phrase plans
+
+Use `python3 scripts/audio_edit/edit_plan.py --input source.wav --plan plan.json --output new-candidate` for new timing edits. The sample timeline is the decoded 44.1 kHz source, not a guessed GarageBand tick rate. A version-1 plan contains `sampleRate`, `sourceSha256`, `sourceFrames`, `channels`, `outputFrames`, `reviewed: true`, `protectedPhrases` and `clips`. Each clip has `sourceStart`, `sourceEnd`, `destinationStart`, and optional `fadeInSamples` / `fadeOutSamples`; all are integer sample counts. A protected phrase has `start`, `end` and `kind` (`slide`, `legato`, `pickup`, `attack` or `ringing`).
+
+Review protection ranges before setting `reviewed`. Every protected phrase must be covered exactly once by a whole clip, with no cut or fade touching it. Clips move without stretching; overlapping destination ranges are rejected. Unprotected omissions and timing moves remain explicit choices in the plan. This does not infer musical phrasing from an RMS threshold.
+
+The candidate is compared against the same source clips on the planned destination timeline. The report covers internal dropouts, discontinuities, joins, protected samples and changes outside planned fades. A failed technical check writes a report and no deliverable. A passing run writes `candidate.wav`, `quality.json`, `original-matched.wav` and `candidate-matched.wav`. Require both `technicalPass` and `renderComplete`; interrupted or failed output writes must not be accepted. The A/B pair uses only level reductions, with shared peak headroom. It compares the planned, unprocessed source segments with the processed candidate; it is not an unshifted original-performance comparison. Listening acceptance is always separate.
+
+Legacy session-specific scripts may contain their own unreviewed padding or cutting policies. Do not copy those branches into a new recipe; use the reviewed plan and shared quality checks. Existing private recordings and historical edit reports do not belong in the repository.
 
 ## Guarded native examples
 

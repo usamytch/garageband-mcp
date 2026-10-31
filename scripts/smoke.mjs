@@ -14,7 +14,7 @@ const unbound = new Set(["gb_import_midi", "gb_imported_events", "gb_search_free
 try {
   await client.connect(transport);
   const { tools } = await client.listTools();
-  assert.equal(tools.length, 61);
+  assert.equal(tools.length, 63);
   for (const tool of tools) {
     assert.equal(Boolean(tool.inputSchema.required?.includes("projectPath")), !unbound.has(tool.name), tool.name);
   }
@@ -32,7 +32,7 @@ try {
   const path = new URL("../docs/tools.md", import.meta.url);
   if (process.argv.includes("--write-catalog")) await writeFile(path, catalog);
   else assert.equal(await readFile(path, "utf8"), catalog, "Refresh docs/tools.md after changing tool registrations.");
-  console.log("PASS: stdio handshake, 61 tools, 49 explicit project targets, missing-target rejection, tool catalog.");
+  console.log("PASS: stdio handshake, 63 tools, 51 explicit project targets, missing-target rejection, tool catalog.");
 } finally {
   await client.close();
 }

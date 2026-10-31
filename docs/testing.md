@@ -7,15 +7,26 @@ npm ci
 npm run check
 ```
 
+Audio helpers have a separate Python/FFmpeg dependency set. After installing
+`scripts/audio_edit/requirements.txt`, run `npm run check:all` to include them.
+CI runs both the Node checks and a separate audio job. Audio regression cases
+cover short renderer output, protected phrases requiring review, false attacks
+on steady material, finite mappings, non-destructive WAV publication and PCM
+reconstruction. They do not certify the musical quality of a stretched phrase.
+
 The suite exercises control conversions/readback, idempotent setters, stale/overlapping region plans, export completion, normalization restoration, stale Smart Control refresh, FIFO/error/cancellation behavior, a real cross-process lock, project-switch rejection through MCP's in-memory transport, automation geometry and drag release, and portable data paths.
 
-The stdio smoke test starts the built server, lists 61 tools, checks that 49 require `projectPath`, and confirms a missing target is rejected before any GUI action. It also checks the generated tool catalog. It does not launch GarageBand, create a MIDI port or render audio. CI runs these checks on macOS with Node 22; it has no interactive GarageBand session.
+Export/import regressions also cover unfinished WAV containers, metadata-only WAV changes versus changed samples, recovery-journal failures, partial setting writes, bounded streaming downloads and HTTPS redirects, window-owner selection and neighboring-region preservation. Python cases reject silent gaps inside active audio and edits crossing protected phrases; a failed output write cannot leave a successful render report.
+
+The stdio smoke test starts the built server, lists 63 tools, checks that 51 require `projectPath`, and confirms a missing target is rejected before any GUI action. It also checks the generated tool catalog. It does not launch GarageBand, create a MIDI port or render audio. CI runs these checks on macOS with Node 22; it has no interactive GarageBand session.
 
 ## Live evidence
 
 The publication environment has macOS 26.6.1 and GarageBand 10.4.14. The GUI adapter was exercised with English labels. Earlier local live checks covered mixer writes, ordinary audio/MIDI region moves, save/reopen and WAV exports. An experimental vocal automation run used 33 points; 12 measured vocal plateaus differed from their recorded fader-level deltas by at most 0.101 dB. Controlled save/reopen and bypass/restore exports were compared. This is a bounded local observation, not a compatibility matrix or a listening-quality certification.
 
 A subsequent local automation-view roundtrip used a disposable 73-region project copy. Repeated visibility requests, rejection of region reads while automation was visible, unchanged region/selection/mixer state and save/reopen passed through a fresh stdio client. All 73 regions exposed parsed display positions, including 48 with fractional boundaries. The 195.2-second stereo 24-bit WAV differed from its existing baseline by at most one 24-bit PCM step (RMS difference -168.54 dBFS). This validates the view/readback change on that setup, not fractional movement or attack-based splitting.
+
+The export/import update was checked on the existing disposable fixture through a fresh MCP process. Whole-song and solo-variant exports decoded as 195.2-second stereo 24-bit WAVs; all 14 original tracks and their region state were identical after the batch. An eight-second synthetic WAV imported at bar 1, retained identical audio data despite added GarageBand metadata, and survived save/close/reopen with identical region state. Its control export had zero sample offset and less than one 24-bit PCM step of residual after constant-gain fitting. A batch range produced exactly 352800 frames with a one-second fade ending at zero; its samples matched the specified fade within one 24-bit PCM step. These are technical checks on this fixture, not listening approval or general compatibility claims.
 
 Private projects, recordings, screenshots and measurement outputs are deliberately not redistributed. Publication-time automated tests do not reproduce that live session. New machine/OS/patch combinations require their own disposable-project checks. Timing from visible pixels is not sample-accurate timing.
 

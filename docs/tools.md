@@ -67,3 +67,5 @@ Project-bound tools require an absolute `projectPath` to an existing saved `.ban
 | `gb_search_freesound` | Search Freesound samples | — |
 | `gb_download_sample` | Download a Freesound sample | — |
 | `gb_export_song` | Export song to disk | Yes |
+| `gb_export_batch` | Export WAV variants with restored mixer state | Yes |
+| `gb_import_audio` | Import verified WAV at bar 1 | Yes |

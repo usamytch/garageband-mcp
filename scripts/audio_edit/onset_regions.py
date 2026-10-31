@@ -20,19 +20,21 @@ def main():
     parser.add_argument('--output',type=Path,required=True,help='New directory for manifest and unprocessed extracted regions')
     args=parser.parse_args()
     anchors=np.asarray(json.loads(args.anchors.read_text()),dtype=float)
-    if len(anchors)==0 or not np.all(np.isfinite(anchors)) or np.any(np.diff(anchors)<=.08):raise ValueError('Anchors must increase, at least 80 ms apart')
-    if args.end<=anchors[-1]:raise ValueError('End must follow last anchor')
+    if anchors.ndim!=1 or len(anchors)==0 or not np.all(np.isfinite(anchors)) or np.any(anchors<0) or np.any(np.diff(anchors)<=.08):raise ValueError('Anchors must be nonnegative and increase, at least 80 ms apart')
+    if not np.isfinite(args.project_offset):raise ValueError('Project offset must be finite')
+    if not np.isfinite(args.end) or args.end<=anchors[-1]:raise ValueError('Finite end must follow last anchor')
     if args.output.exists():raise FileExistsError(args.output)
     x=engine.decode(args.input)
     if round(args.end*engine.SR)>len(x):raise ValueError('End exceeds source duration')
     events=engine.detect(x,anchors)
     if len(events)!=len(anchors):raise ValueError('Missing attacks; no output written')
-    args.output.mkdir(parents=True)
     preroll=round(.008*engine.SR)
+    starts=[max(0,event['onsetSample']-preroll) for event in events]
+    ends=starts[1:]+[round(args.end*engine.SR)]
+    if any(end<=event['onsetSample'] for event,end in zip(events,ends)):raise ValueError('End must follow every detected attack; no output written')
+    args.output.mkdir(parents=True)
     regions=[]
-    for i,event in enumerate(events):
-        start=max(0,event['onsetSample']-preroll)
-        end=max(start,(events[i+1]['onsetSample']-preroll) if i+1<len(events) else round(args.end*engine.SR))
+    for i,(event,start,end) in enumerate(zip(events,starts,ends)):
         file=f'region-{i+1:02d}.wav'
         engine.write_wav(args.output/file,x[start:end])
         regions.append({**event,'sourceRangeSamples':[start,end],'projectStartSeconds':start/engine.SR+args.project_offset,'file':file,'samples':end-start})

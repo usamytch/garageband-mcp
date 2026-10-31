@@ -34,6 +34,8 @@ Compare candidate, saved/reopened, new-curve-disabled and restored full-path ren
 
 ## 4. Evaluate and deliver
 
+For timing edits, mark slides, bends, legato and ringing tails as protected phrases before choosing cuts. An anchor-guided detector only proposes candidates. Preserve protected phrases as a unit; do not stretch a slide or force one cut per grid point. Review an explicit source-to-destination edit map before rendering. Treat a short or non-finite render as a failed edit, never fill missing active audio with silence. Check internal joins and new dropouts across the entire interval, not only its boundary or first attack samples. Keep a candidate separate until technical verification and listening acceptance; a technical pass alone cannot approve a repaired performance.
+
 Technical checks: correct source/candidate identity, duration, channels, sample rate, finite samples, signal/silence as expected, clipping and appropriate loudness/true-peak measurements when tooling exists. Use waveform/timing checks for region moves and phrase-window gains for rides. Set tolerances before declaring a pass; explain quantization and stochastic effects.
 
 Listening checks: matched loudness, vocal intelligibility, groove, low-end definition, harshness/fatigue, stereo/mono behavior and section contrast. Mark each as performed, user-reviewed or not performed. When the agent has no playback/listening capability, provide accessible audio and request the user's artistic judgment without claiming to have heard it.

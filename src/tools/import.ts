@@ -1,39 +1,19 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { writeFile, mkdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { ok, guarded, GBError } from "../errors.js";
 import { parseSMF, toSong, type ImportedSong } from "../smf.js";
 import { mergeLayers, sequenceLengthBeats } from "../music.js";
 import { playEvents, recordSequenceFlow } from "./compose.js";
+import { fetchBytes, readLocalBytes } from "../bounded-io.js";
 
 const MIDI_MAX_BYTES = 5 * 1024 * 1024;
 const AUDIO_MAX_BYTES = 30 * 1024 * 1024;
 const SAMPLES_DIR = join(homedir(), "Music", "GarageBand MCP Samples");
 
 let lastImport: { source: string; song: ImportedSong } | null = null;
-
-async function fetchBytes(url: string, maxBytes: number): Promise<Buffer> {
-  if (!/^https:\/\//.test(url)) {
-    throw new GBError("INVALID_INPUT", "Only https:// URLs are allowed.");
-  }
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 30_000);
-  try {
-    const res = await fetch(url, { signal: ctrl.signal, redirect: "follow" });
-    if (!res.ok) {
-      throw new GBError("INVALID_INPUT", `Download failed: HTTP ${res.status} for ${url}`);
-    }
-    const buf = Buffer.from(await res.arrayBuffer());
-    if (buf.length > maxBytes) {
-      throw new GBError("INVALID_INPUT", `File is ${(buf.length / 1e6).toFixed(1)} MB — over the ${maxBytes / 1e6} MB limit.`);
-    }
-    return buf;
-  } finally {
-    clearTimeout(timer);
-  }
-}
 
 function requireImport(): { source: string; song: ImportedSong } {
   if (!lastImport) {
@@ -86,7 +66,7 @@ export function registerImportTools(server: McpServer): void {
         if (!url && !path) {
           throw new GBError("INVALID_INPUT", "Pass a `url` or a local `path`.");
         }
-        const buf = url ? await fetchBytes(url, MIDI_MAX_BYTES) : await readFile(path!);
+        const buf = url ? await fetchBytes(url, MIDI_MAX_BYTES) : await readLocalBytes(path!, MIDI_MAX_BYTES);
         const song = toSong(parseSMF(buf), maxNotes ?? 4000);
         if (song.layers.length === 0) {
           throw new GBError("INVALID_INPUT", "The MIDI file parsed but contains no notes.");
@@ -202,11 +182,7 @@ export function registerImportTools(server: McpServer): void {
         const url =
           `https://freesound.org/apiv2/search/text/?query=${encodeURIComponent(query)}${filter}` +
           `&fields=id,name,duration,license,username&page_size=${maxResults ?? 10}&token=${token}`;
-        const res = await fetch(url);
-        if (!res.ok) {
-          throw new GBError("INVALID_INPUT", `Freesound API error: HTTP ${res.status} — ${(await res.text()).slice(0, 200)}`);
-        }
-        const data = (await res.json()) as {
+        const data = JSON.parse((await fetchBytes(url, 1024 * 1024)).toString()) as {
           count: number;
           results: Array<{ id: number; name: string; duration: number; license: string; username: string }>;
         };
@@ -237,11 +213,7 @@ export function registerImportTools(server: McpServer): void {
         if (!token) {
           throw new GBError("INVALID_INPUT", "FREESOUND_API_KEY is not set.", "See gb_search_freesound for setup.");
         }
-        const res = await fetch(`https://freesound.org/apiv2/sounds/${id}/?fields=name,previews,license,username&token=${token}`);
-        if (!res.ok) {
-          throw new GBError("INVALID_INPUT", `Freesound API error: HTTP ${res.status}`);
-        }
-        const info = (await res.json()) as {
+        const info = JSON.parse((await fetchBytes(`https://freesound.org/apiv2/sounds/${id}/?fields=name,previews,license,username&token=${token}`, 1024 * 1024)).toString()) as {
           name: string;
           previews: Record<string, string>;
           license: string;
@@ -255,7 +227,7 @@ export function registerImportTools(server: McpServer): void {
         await mkdir(SAMPLES_DIR, { recursive: true });
         const safe = info.name.replace(/[^\w.-]+/g, "_").slice(0, 60);
         const dest = join(SAMPLES_DIR, `${id}-${safe}.mp3`);
-        await writeFile(dest, audio);
+        await writeFile(dest, audio, { flag: "wx" });
         return ok(
           `Saved: ${dest} (${(audio.length / 1024).toFixed(0)} KB)\n` +
             `License: ${info.license} · by ${info.username}` +

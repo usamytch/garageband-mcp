@@ -1,6 +1,10 @@
 """Offline 44.1 kHz onset/edit primitives; never opens or modifies GarageBand."""
 import json
+import os
 import subprocess
+import tempfile
+import wave
+from pathlib import Path
 import numpy as np
 
 SR = 44100
@@ -18,14 +22,35 @@ def decode(path):
 
 
 def write_wav(path,x):
-    x=np.asarray(x)
+    path=Path(path)
+    x=np.asarray(x,dtype=float)
+    if x.ndim not in (1,2) or not x.size or not np.all(np.isfinite(x)):
+        raise ValueError('Audio must contain finite mono or interleaved channel samples')
+    if np.max(np.abs(x))>=1:raise ValueError('Audio would clip; adjust gain explicitly before writing')
+    pcm=np.rint(x.reshape(-1)*2**23).astype(np.int32)
+    if np.any(pcm>=2**23):raise ValueError('Audio exceeds the positive 24-bit PCM range')
     channels=1 if x.ndim==1 else x.shape[1]
-    subprocess.run(['ffmpeg','-v','error','-y','-f','f32le','-ar',str(SR),'-ac',str(channels),'-i','-','-c:a','pcm_s24le',str(path)],input=x.astype('<f4').tobytes(),check=True)
+    packed=((pcm[:,None] >> np.array([0,8,16])) & 255).astype(np.uint8).tobytes()
+    # Publish only a complete WAV; hard-link creation cannot overwrite a source.
+    with tempfile.NamedTemporaryFile(prefix='audio-write-',suffix='.wav',dir=path.parent,delete=False) as temporary:
+        temporary_path=Path(temporary.name)
+    try:
+        with wave.open(str(temporary_path),'wb') as output:
+            output.setparams((channels,3,SR,0,'NONE','not compressed'))
+            output.writeframes(packed)
+        os.link(temporary_path,path)
+    finally:
+        temporary_path.unlink()
 
 def detect(x,grid):
     # Analyse channels by energy, never summing antiphase stereo to mono.
+    x=np.asarray(x,dtype=float)
+    grid=np.asarray(grid,dtype=float)
     if x.ndim==1:x=x[:,None]
-    if not np.all(np.isfinite(x)):raise ValueError('Non-finite audio')
+    if x.ndim!=2 or not x.shape[1] or not np.all(np.isfinite(x)):raise ValueError('Expected finite audio channels')
+    if grid.ndim!=1 or not np.all(np.isfinite(grid)) or np.any(np.diff(grid)<=.08) or np.any(grid<0) or np.any(grid>=len(x)/SR):
+        raise ValueError('Anchors must be finite, increasing, at least 80 ms apart and inside the source')
+    if not len(grid):return []
     if len(x)<882 or np.max(np.abs(x))<1e-6:return []
     hop=88;win=882
     frames=np.lib.stride_tricks.sliding_window_view(x,win,axis=0)[::hop]
@@ -42,7 +67,7 @@ def detect(x,grid):
         for candidate in range(lo,hi):
             preceding=float(np.mean(rms[max(0,candidate-18):max(1,candidate-5)]))
             following=float(np.mean(rms[candidate+2:candidate+15]))
-            if following>=max(.001,preceding*.65):candidates.append(candidate)
+            if following>=max(.001,preceding*1.25):candidates.append(candidate)
         if not candidates:raise ValueError(f'No confident rising attack near {expected:.3f} seconds')
         p=max(candidates,key=lambda candidate:flux[candidate])
         floor=max(0,p-12)
@@ -52,7 +77,8 @@ def detect(x,grid):
         begin=int((t[q]-.005)*SR)
         peak=int(t[p]*SR)
         finehop=44
-        low=max(0,peak-int(.055*SR));high=peak+int(.025*SR)
+        low=max(0,peak-int(.055*SR));high=min(len(x),peak+int(.025*SR))
+        if high-low<220:raise ValueError('Attack too close to source boundary for reliable refinement')
         fine=np.sqrt(np.mean(np.lib.stride_tricks.sliding_window_view(x[low:high],220,axis=0)[::finehop]**2,axis=(1,2)))
         base=float(np.min(fine[:max(1,len(fine)//2)]));top=float(np.percentile(fine,90))
         if base<top*.15:
@@ -92,20 +118,29 @@ def clean_segment(x,noise):
     gain=np.convolve(np.pad(gain,(220,220),mode='edge'),kernel,mode='valid')[:len(x)]
     return x*gain
 
-def stretch_tail(x,wanted):
-    # Preserve pick attack verbatim. Only continuous sustain may need lengthening.
-    if wanted<=len(x):return x[:wanted],False
-    if len(x)<3000 or np.sqrt(np.mean(x[-882:]**2))<.007:
+def stretch_tail(x,wanted,*,allow_time_stretch=False):
+    # Only reviewed steady sustain may be stretched, never an inferred slide.
+    x=np.asarray(x,dtype=float)
+    if x.ndim!=1 or not len(x) or not np.all(np.isfinite(x)):raise ValueError('Expected finite nonempty mono audio')
+    if isinstance(wanted,bool) or not isinstance(wanted,(int,np.integer)) or wanted<len(x):
+        raise ValueError('Requested samples must preserve the source; trimming is a separate edit')
+    if wanted==len(x):return x.copy(),False
+    if not np.any(x[-min(882,len(x)):]):
         return np.pad(x,(0,wanted-len(x))),False
+    if not allow_time_stretch:raise ValueError('Active sustain requires review; preserve slides as a single phrase')
+    if len(x)<3000:raise ValueError('Too few samples for a protected attack and continuous sustain')
     protect=2205;overlap=661
-    tail=x[protect-overlap:]
-    target=wanted-protect+overlap
+    tail=x[protect:]
+    target=wanted-protect
     tempo=len(tail)/target
+    if tempo<.5:raise ValueError('Requested stretch exceeds the reviewed single-stage tempo range')
     result=subprocess.check_output(['ffmpeg','-v','error','-f','f32le','-ar',str(SR),'-ac','1','-i','-','-af',f'atempo={tempo:.10f}','-f','f32le','-'],input=tail.astype('<f4').tobytes())
     y=np.frombuffer(result,dtype='<f4').astype(float)
-    y=np.pad(y,(0,max(0,target-len(y))))[:target]
+    if not np.all(np.isfinite(y)):raise ValueError('Renderer returned non-finite samples')
+    if len(y)<target:raise ValueError(f'Renderer returned a short tail ({len(y)} of {target} samples); refusing a silent dropout')
+    y=y[:target]
     fade=np.linspace(0,1,overlap)
-    z=np.r_[x[:protect-overlap],x[protect-overlap:protect]*(1-fade)+y[:overlap]*fade,y[overlap:]]
+    z=np.r_[x[:protect],x[protect:protect+overlap]*(1-fade)+y[:overlap]*fade,y[overlap:]]
     return z[:wanted],True
 
 def event_features(x,start,end):

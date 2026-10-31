@@ -33,12 +33,11 @@ class OnsetEditTest(unittest.TestCase):
         self.assertGreater(np.max(np.abs(y[:int(.15*edit.SR)])),.09)
         self.assertEqual(np.max(np.abs(y[int(.3*edit.SR):])),0)
 
-    def test_sustain_extension_preserves_pick(self):
+    def test_unreviewed_sustain_extension_leaves_source_unchanged(self):
         t=np.arange(10000)/edit.SR
         x=.1*np.sin(2*np.pi*330*t)
-        y,changed=edit.stretch_tail(x,11000)
-        self.assertTrue(changed)
-        self.assertEqual(len(y),11000)
-        np.testing.assert_array_equal(x[:1544],y[:1544])
+        with self.assertRaisesRegex(ValueError,'review'):
+            edit.stretch_tail(x,11000)
+        np.testing.assert_array_equal(x,.1*np.sin(2*np.pi*330*t))
 
 if __name__=='__main__':unittest.main()

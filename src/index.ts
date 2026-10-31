@@ -16,6 +16,8 @@ import { closeMidi } from "./midi.js";
 import { cancelActive } from "./scheduler.js";
 import { installGuiGuard } from "./guarded-server.js";
 import { registerAutomationTools } from "./tools/automation.js";
+import { registerBatchExportTools } from "./tools/export-batch.js";
+import { registerAudioImportTools } from "./tools/audio-import.js";
 
 const server = new McpServer({
   name: "garageband-mcp",
@@ -36,6 +38,8 @@ registerAutomationTools(server);
 registerLoopTools(server);
 registerImportTools(server);
 registerExportTools(server);
+registerBatchExportTools(server);
+registerAudioImportTools(server);
 
 function shutdown(): void {
   cancelActive();

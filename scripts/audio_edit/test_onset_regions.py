@@ -54,6 +54,35 @@ class RegionExtractionTest(unittest.TestCase):
         self.assertNotEqual(self.run_cli().returncode, 0)
         self.assertFalse(self.output.exists())
 
+    def test_end_before_actual_attack_is_rejected_before_any_output(self):
+        mono = np.zeros(3 * engine.SR)
+        for start in [.82, 1.38, 2.09]:
+            t = np.arange(round(.15 * engine.SR)) / engine.SR
+            note = .2 * np.sin(2 * np.pi * 330 * t) * np.minimum(1, t / .003) * np.exp(-15 * t)
+            offset = round(start * engine.SR)
+            mono[offset:offset + len(note)] = note
+        engine.write_wav(self.input, mono)
+        result = subprocess.run([
+            sys.executable, str(Path(__file__).with_name('onset_regions.py')),
+            '--input', str(self.input), '--anchors', str(self.anchors),
+            '--project-offset', '3.2', '--end', '2.01', '--output', str(self.output)
+        ], capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('detected attack', result.stderr)
+        self.assertFalse(self.output.exists())
+
+    def test_invalid_mapping_is_rejected_before_output_creation(self):
+        engine.write_wav(self.input, np.zeros(3 * engine.SR))
+        for flag, value in [('--project-offset', 'nan'), ('--project-offset', 'inf'), ('--end', 'nan')]:
+            result = subprocess.run([
+                sys.executable, str(Path(__file__).with_name('onset_regions.py')),
+                '--input', str(self.input), '--anchors', str(self.anchors),
+                '--project-offset', '3.2', '--end', '2.7', '--output', str(self.output), flag, value
+            ], capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('finite', result.stderr.lower())
+            self.assertFalse(self.output.exists())
+
 
 if __name__ == '__main__':
     unittest.main()

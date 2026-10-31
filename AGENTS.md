@@ -2,6 +2,7 @@
 
 - Keep existing indentation, wrapping and braces. Do not run a whole-file formatter on existing code. Inspect the ordinary diff before committing.
 - Build with `npm ci`, then `npm run check`. Regenerate the tool catalog with `node scripts/smoke.mjs --write-catalog` after changing registrations. Unit/stdio checks do not prove GarageBand behavior.
+- For offline audio changes, install `scripts/audio_edit/requirements.txt` and FFmpeg, then run `npm run check:all`. Preserve slides/legato as reviewed phrases; never pad a short active render with zeros or treat attack/peak checks as listening acceptance.
 - Preserve `installGuiGuard` registration for every new tool. Classify unbound tools explicitly; project-bound GUI operations must hold the shared lock for the whole handler and verify the target after waiting and before native actions.
 - Do not turn cancellation into early lock release while native work continues. A crashed server can leave an `osascript` child alive; inspect it before starting another GUI operation.
 - Use explicit, idempotent setters where possible. Read back actual application state. A percentage is not dB; a normalized Smart Control is not Hz or milliseconds.

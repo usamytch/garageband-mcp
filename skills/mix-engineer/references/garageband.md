@@ -1,6 +1,6 @@
 # GarageBand adapter: capability and verification contract
 
-Discover tools from the connected server, not a remembered tool count. This fork currently registers 61; another installation may not include the additions. Use `gb_check_permissions` and `gb_list_projects` to inspect readiness. All project-bound tools require the absolute saved `.band` path in `projectPath`. `gb_open_project` takes `path`.
+Discover tools from the connected server, not a remembered tool count. This fork currently registers 63; another installation may not include the additions. Use `gb_check_permissions` and `gb_list_projects` to inspect readiness. All project-bound tools require the absolute saved `.band` path in `projectPath`. `gb_open_project` takes `path`.
 
 Use `gb_set_automation_view` with `visible: false` before region reads/moves; repeated calls are idempotent and do not bypass or edit curves. `gb_list_regions` exposes literal `startPosition`/`endPosition` bar/beat/division/tick fields. Missing units are null, not zero. Fractional readback does not enable fractional moves: the whole-bar movement preconditions still apply.
 
@@ -12,6 +12,11 @@ Use `gb_set_automation_view` with `visible: false` before region reads/moves; re
 - `gb_list_smart_controls`: discover the selected track's actual knobs/switches. Set with `gb_set_smart_control` (0–1 normalized) or `gb_set_smart_switch`. Use an explicit track index. Refresh after switching tracks; reject ambiguous names.
 - `gb_list_regions`, `gb_move_region`: whole-bar ordinary audio/MIDI only, stopped transport, visible source/destination, compatible tracks, no overlaps. Refresh IDs after edits. Fractional regions, Drummer and loops are unsupported; hide automation before region discovery/moves.
 - `gb_export_song`: use explicit filename, format and directory; preserve/restore normalization. Confirm completion and inspect the actual audio file.
+- `gb_export_batch`: WAV variants with per-job solo/mute overrides and restoration journals. Range trimming requires a verified `exportOriginSeconds`; never assume a whole-song bounce begins at project zero. State restoration is verified even after setup/action failure. A partial failure retains completed outputs for inspection.
+- `gb_import_audio`: SHA-256-identified WAV into an existing named empty audio track at bar 1. Checks the region, neighboring tracks and identical WAV format/audio data in the project media copy; GarageBand may add metadata chunks. It does not save the project or prove persistence; save/reopen and compare a control export when authorized. Do not repeat a partial failed import blindly.
+- `gb_screenshot`: captures a window identified by GarageBand's process and window ID; overlapping applications are excluded. Ambiguous identity is an error.
+
+Exports require FFmpeg and ffprobe on the server's PATH. Successful completion includes a finished export UI, finalized WAV chunks when applicable, valid audio metadata and full decoding. Evidence, recovery journals and scratch captures use `GARAGEBAND_MCP_DATA_DIR` (default `~/Music/GarageBand MCP`); choose the current task's visible evidence directory. Screenshots and exports never overwrite an existing destination.
 
 A switch labelled “Bypass Compressor” had checked=true when compression was active in one tested patch. Labels alone cannot establish signal processing state across patches. Verify the behavior before describing a switch as bypassed/active.
 

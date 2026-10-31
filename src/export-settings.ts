@@ -1,5 +1,6 @@
 import { runAX } from "./native-ax.js";
 import * as ui from "./ui.js";
+import { withTemporarySettings, type SettingEvent } from "./settings-transaction.js";
 
 // A per-export override is restored after the export finishes. The UI is the
 // source of truth; reading the preferences file can return cached settings.
@@ -28,8 +29,10 @@ export async function exportNormalization(enabled?: boolean): Promise<boolean> {
 
 export async function withNormalization<T>(requested: boolean | undefined,
   setting: (enabled?: boolean) => Promise<boolean>, action: (enabled: boolean) => Promise<T>,
+  record?: (event: SettingEvent) => Promise<void>,
 ): Promise<T> {
-  const previous = await setting(requested);
-  try { return await action(requested ?? previous); }
-  finally { if (requested !== undefined && requested !== previous) await setting(previous); }
+  if (requested === undefined) return action(await setting());
+  return withTemporarySettings([{ key: "Auto Normalize", value: requested,
+    read: () => setting(), write: value => setting(value),
+  }], () => action(requested), record);
 }
